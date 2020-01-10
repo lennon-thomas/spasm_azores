@@ -1,0 +1,441 @@
+---
+title: "A Spatial Bioeconomic Model of the Azores Demersal fishery"
+author: 
+date: '`r format(Sys.Date(), "%m/%d/%Y")`'
+output:
+  word_document: default
+   
+  html_document: default
+  pdf_document: default
+header-includes: \usepackage{amsmath}
+linkcolor: blue
+#csl: fish-and-fisheries.csl
+#bibliography: Blue Azores.bib
+---
+
+```{r setup, include=FALSE}
+fig_width <- 15
+fig_height <- 15
+fig_asp <- .65
+knitr::opts_chunk$set(echo = FALSE, message = F, warning = F, fig.width = fig_width,
+                      fig.height = fig_height)
+                      #dev = 'cairo_pdf')
+```
+
+```{r load run , include = FALSE}
+library(tidyverse)
+library(knitr)
+library(raster)
+library(rgdal)
+library(broom)
+library(gdata)
+library(FRK)
+library(bookdown)
+boxdir<-"/Users/lennonrosethomas/Box Sync/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
+azores<-readOGR(dsn=paste0(boxdir,"raw_sp/"),layer="azores_EEZ")
+tidy_eez <- tidy(azores)
+
+temp_df <- data.frame(azores@data)
+
+temp_df$id <- seq(0,nrow(temp_df)-1)
+
+EEZ_df <- merge(tidy_eez, temp_df, by="id")
+
+land <- EEZ_df %>%
+  dplyr::filter(hole == TRUE)
+
+land_sp<-df_to_SpatialPolygons(land,key="group",coords=c("long","lat"),proj=CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+```
+# The most recent version of this document is in google document here: https://docs.google.com/document/d/111sZZnxFBw0U7UuRPUpFObA2ko_48HKR/edit#
+
+# Introduction
+
+  * How this broadly fits into Blue Azores project. Use MLPA process as example
+
+## Background
+
+#### Azores Demersal Fishery Description
+  
+   * Value of fishery/economic importance, markets (exports vs. fresh local)
+     
+   * Description of fleet (# and types of vessels, # of fishers, types of gears used, seasonality)
+       
+   * Habitat fished and species targeted
+     
+   * Summary of regulations (what vessels are allowed to fish where, Condor Seamount, gear restrictions (?), ICES TACs, minimum sizes)
+     
+   * Status of fishery (trends in landings, thought to be overexploited (?))  
+ 
+#### Black-Spotted Sea Bream Description
+
+   * Description/Value to fisheries (demersal, tuna live bait, recreational)
+
+   * Broad description of life history, habitat use
+    
+   * Stock structure (Azores is considered a single stock in ICES subarea- describe)
+    
+  * History of assessment and management (TACs, min sizes, bag limits/restrictions on recreational catch, trends in landings)
+
+   * Current status of species
+ 
+## Overview and Objectives
+
+The objective of this model is to provide stakeholders and policy makers with a tool that can help explore relative potential effects of different MPA network designs on the Azores domestic demersal fishery. We use a Spatially Age-Structured Model (SPASM) as an operating model simulate effects of MPAs on the Azores demersal fishery [@Ovandoinreview].  We parameterize the model for a single species, the black spotted sea bream (*Pagellus bogaraveo*), and to represent fleet dynamics of the Azores' domestic fishing fleet. We modify the SPASM model to allow for juvenile movement to adult habitat at maturity and to incorporate price dynamics. We use JABBA R package (cite) to fit catch and cpue data from the fishery to a Pella Tomlinson surplus production model to estimate the population's carrying capacity and current stock status (relative B and F). The SPASM model is run from unfished conditions to the current estimated biomass to solve for current F. We then use the model to simulate 30 year projections assuming a constant effort $E$ that is spatially distributed according to different fleet dynamic scenarios. The simulations are run to estimate relative stock biomass and relative fishery revenue over time given a user specified MPA network.  We can then compare the model output, biomass and fishery revenue at X year after MPA implementation, across different proposed MPA network scenarios and a no MPA network scenario.
+
+## Methods
+
+
+## Operating Model 
+### Population Model
+For the population model, numbers $n$ at time $t$ for age $a$ are given by:
+
+$$
+\begin{equation}
+n_{t,a}=\begin{cases}
+      = BH(ssb_{t-1}) & \text{if $a = 0$}\\
+     = n_{t-1,a-1}e^{-(m + qE_{t-1}{\ * }s_{a-1})}, & \text{if $1< a < max(age)$}\\
+     =  n_{t-1,a}e^{-(m + qE_{t-1}{\ * }s_a)} + n_{t-1,a-1}e^{-(m + qE_{t-1}{\ * }s_{a-1})}, & \text{if $a = max(a)$}
+  \end{cases} \;(1)
+  \label{eq:1}
+\end{equation}
+$$ 
+
+
+where $BH$ is the Beverton-Holt recruitment function, $ssb$ is spawning-stock-biomass, $m$ is natural mortality, $q$ is catchability, $E$ is fishing effort at time $t$, and $s$ is selectivity at age $a$. 
+
+
+Selectivity at age ($s_a$) is modeled through a logistic form per:
+$$
+\begin{equation}
+s_a=\frac{1}{(1 + e^{-log(19)\ * \frac{l_a - l_{sel}}{\delta_{sel}}})}
+  \label{eq:2}
+   \;\; \;\;(2)
+\end{equation}
+$$ 
+where $l_a$ is the mean length at at age, $l_sel$ is the length at which on average 50\% of individuals are selected by the fishery, and $\delta_{sel}$ are the additional units of length at which on average 95\% of fish are selected by the fishery. 
+
+The average length ($l_a$) of fish in each age class is calculated using a von Bertlanffy growth equation: 
+$$
+\begin{equation}
+  l_{a} = l_{\infty}\left(1 - e^{-k(a - a_0)}\right)
+  \label{eq:3}
+\end{equation} \;\; \;\;(3)
+$$ 
+The average weight at age ($w_a$) is then given by: 
+
+$$
+\begin{equation}
+  w_{a} = b1 \ *  l_{a}^{b2_b}
+  \label{eq:4}
+\end{equation} \;\; \;\;(4)
+$$ 
+
+and maturity $mat$ is calculated as
+$$
+\begin{equation}
+  \frac{1}{(1 + e^{-log(19)\times\frac{l_a - l_{mat}}{\delta_{mat}}})}
+  \label{eq:4}
+\end{equation} \;\; \;\;(5)
+$$ 
+where $l_{mat}$ is the length at which on average 50\% of individuals are sexual maturity, and $\delta_{mat}$ is the units of length beyond $l_{mat}$ at which on average 95\% of fish are sexually mature.
+
+Spawning stock biomass at time $t$ is then calculated as
+
+$$
+\begin{equation}
+  ssb_t = \sum_{a=1}^Aw_{a,t}mat_{a,t}n_{a,t}
+ \label{eq:6}
+\end{equation} \;\; \;\;(6)
+$$ 
+
+$ssb$ is calculated by converting age to mean length, calculating weight at age, maturity at age, and then calculating spawning stock biomass as the sum of spawning potential at age in $a$ given time step: 
+
+### Recruitment
+
+Recruitment follows Beverton-Holt dynamics. Density dependence is a function of the sum of spawning biomass across all patches, and larval recruits are then distributed evenly across all patches with juvenile habitat:
+
+$$
+\begin{equation}
+n_{t,a = 1,p} = \left(\frac{0.8{\times}\sum_{p=1}^P{r0_{p}}\times{h}\times\sum_{p=1}^P{ssb_{t-1,p}}}{0.2\times{\sum_{p=1}^Pssb0_p}\times(1 - h)+(h - 0.2)\times{\sum_{p=1}^Pssb_{t-1,p}}}\right) \times \epsilon_t
+ \label{eq:7}
+\end{equation}\;\; \;\;(7)
+$$
+
+$\epsilon$ represents multiplicative recruitment deviates. Deviates are calculated as
+$$
+\begin{equation}
+\epsilon_t = e^{recdev_t} 
+ \label{eq:8}
+\end{equation} \;\; \;\;(8)
+$$
+$recdev$ are the log-normal recruitment deviates in time $t$. 
+The stochastic component of the deviate is:
+$$
+\begin{equation}
+\gamma_t \sim norm(-\sigma_r^2/2,\sigma_r)
+ \label{eq:9}
+\end{equation} \;\; \;\;(9)
+$$ 
+and the final multiplicative recruitment deviate in time $t$ is then:
+$$
+\begin{equation}
+recdev_t = \gamma_t\sqrt{1 - ac_r^2} + recdev_{t-1}ac_r 
+ \label{eq:10}
+\end{equation}\;\; \;\; (10)
+$$ 
+where $ac$ is the autocorrelation of the recruitment function (between 0 and 1). 
+
+### Movement
+
+Movement across for each age class in the popualtion at each time step.  A carrying capacity is calucated for each patch based on habitat quality ($k_p$). Density is calcualted for each patch  at each time step  as biomass at each  the biomass $\frac{B_{t,p}}{k_p}$. Movement is density-dependent and assumes a Gaussian dispersal kernel:
+
+
+$$
+\begin{equation}
+m_{s,p_i,p_j}=\frac{1}{\sqrt{2\pi\sigma_{s,p_i}^2}}e^{-\frac{d_{p_i,p_j}^2}{2\sigma_{s,p_i}^2}}
+ \label{eq:11}
+\end{equation} \;\; \;\;(11)
+$$ 
+
+
+
+where $p_{i}$ is the source patch, $p_{j}$ is the destination patch, $d$ is the distance between patches $i$ and $j$ (measured in km), and $sigma_a$ is the movement rate at age $a$. Each patch $p$is defined as either juvenile, or adult habitat.Indivduals  that have not reached maturity $N_{a<a_{mat}}$ are restrcited to movement between patches with  juvenile habitat ($p_{juvenile}$). Mature individuals ($N_{a>=a_{mat},p}$) can move between between any patches with adult and/or juvenile habitat patch.
+
+<!-- $$ -->
+<!-- \begin{equation} -->
+<!-- p_i,p_j = \begin{cases} -->
+<!-- \text  {if $a = 0$; $i = adult$ $patch$ and $j = juvenile$ $patch$}\\ -->
+<!--   \text{if $ a = mat_{a}$; $i = juvenile$ $patch$ and $j = adult$ $patch$}\\ -->
+<!--     \text {if $a > mat_{a}$; $ i= adult$ $patch$ and $j = adult$ $patch$} -->
+<!--   \end{cases} -->
+<!--   \label{eq:12} -->
+<!-- \end{equation} \;\; \;\;(12) -->
+<!-- $$  -->
+
+*old text*
+*We allow the adult dispersal matrix to be affected by adult density dependence. The idea behind this is that adult fish will move more as densities increase, and become more sedentary as densities decrease (as habitat and food become more available for example). This allows us to simulate a scenario where as MPAs build up density they begin to export more adults to the surrounding waters, and if densities are lower in the fished areas these fish will actually become more sedentary* 
+*Under these conditions, the adult movement rate is a linear function of depletion (measured as $ssb/ssb_0$) *
+
+$$
+\begin{equation}
+\sigma_{s=a,p}^* = max(slope\times{d _p+ \sigma_{s=a} \times dmod},0)
+  \label{eq:13}
+\end{equation} \;\; \;\;(13)
+$$ 
+
+*where*
+
+$$
+\begin{equation}
+slope = \sigma_{s=a} - ( \sigma_{s=a} \times dmod)
+ \label{eq:14}
+\end{equation} \;\; \;\;(14)
+$$
+
+*Under these conditions, when depletion $d = 1$ (meaning the stock is unfished) the adult movement rate equals the max adult movement rate* ($\sigma_{s=a}^* = \sigma_{s=a}$). When $d=0$ $\sigma_{s=a}^* = \sigma_{s=a} * dmod$. *The greater $dmod$ is then, the more movement rates from a patch decline as density declines*
+
+## Fleet Dynamics
+
+We allow two fleet models: constant catch and open accesss. Under constant catch, we set a target catch volume ($CT$) (in biomass, summed across all patches). Each time step, we calculate the fishing mortality rate that, given the fishable biomass in that time step, would produce the target catch.  If there is insufficienct fishable biomass available to support the target catch, we mark the population as crashed and stop the simulation.
+
+Under open-access, fishing effort expands in proportion to a weighted mean of profit-per-unit effort over the last $t$ time steps.
+$$
+\begin{equation}
+profit_{t} = price\times{catch_t} - cost\times{E_t}^2
+ \label{eq:15}
+\end{equation} \;\; \;\;(15)
+$$
+
+From there, we determine the new effort as:
+$$
+\begin{equation}
+E_t = E_{t-1} + \theta\times\sum_{i=t-1-l}^{t-1}w_i\frac{profit_{i}}{E^i}
+ \label{eq:16}
+\end{equation}\;\; \;\; (16)
+$$ 
+where $w$ is a weighting function which is just a linear function of time:
+$$
+\begin{equation}
+  w_i = \frac{i}{\sum_{i=1}^li}
+ \label{eq:17}
+\end{equation}\;\; \;\; (17)
+$$ 
+
+and $l$ is the number of lagged time steps over which to calculate the weighted mean PPUE.
+The open-access model can enter chaotic dynamics if the model parameters are not properly tuned. To address this, we first set price at 1, and set a $\theta$ such that when profits are about as large as they might conceivably be the fishery doubles in size. We then estimate reference points for the simulated fishery (Bmsy, Fmsy, MSY), and set a target bionomic equilibrium B/Bmsy. Holding the other parameters constant, we thing find a cost coefficient that produces the desired bionomic equilibrium. 
+
+### Spatial Fleet Distribution
+
+Given total effort, we then distribute effort spatially according to SSB in fishable patches:
+
+$$
+\begin{equation}
+E_{t,p} = E_t \times \frac{open_{t,p}ssb_{t,p}}{\sum_{p=1}^Popen_{t,p}ssb_{t,p}}
+\end{equation}\;\; \;\; (18)
+$$
+or effort can be distributed according to profit-per-unit-area ($ppue$) in fishable patches:
+
+$$
+\begin{equation}
+E_{t,p} = E_t \times \frac{open_{t,p}ppue_{t,p}}{\sum_{p=1}^Popen_{t,p}ppue_{t,p}}
+  (\#eq:ppueeffort)
+\end{equation} (\;\; \;\;19)
+$$
+
+
+Under the open access scenarios, effort can immediately respond to MPA placement in one of two ways. Effort can concentrate outside the MPAs (such that the sum of effort before and after MPA placement stays constant), or effort can leave the MPAs, such that the total effort in the fishery is reduced by the amount of effort that occurred inside the MPAs immediately before MPA placement. This is intended to simulate a scenario where fishers that used to use the MPA simply leave the fishery rather than redistribute outside the MPA, due for example to costs or lack of location specific knowledge to fish outside the MPA.
+
+### MPA Design
+
+A percentage of total patches is set to be placed inside no-take MPAs. MPAs can be placed randomly with a minimum size limit $MPA_{size_limit}$ that controls the patchiness of the MPAs. Alternatively, the placement of MPAs can be specified by the user using a raster of cells identified as non-MPA can be specified by the user.
+
+## Simulations
+
+The simulations begin at an unfished equilibrium using a specified unfished initial recruitement $R_{i,0}$ such that:
+$$
+\begin{equation}
+n_{t,a}=\begin{cases}
+      = R_{0} & \text{if $a = 0$}\\
+     = n_{t-1,a-1}e^{-(m)}, & \text{if $1< a < max(age)$}\\
+     =  n_{t-1,a}e^{-(m)} + n_{t-1,a-1}e^{-(m)}, & \text{if $a = max(a)$}
+  \end{cases}
+\end{equation} \;\; \;\;(20)
+$$ 
+The population is then fished down to equilibrium by solving for a total system-wide annual effort  ($E_{int}$) that results in the current system-wide biomass relative to system wide biomass at maximum sustainble yield ($B_{curr}/B_{MSY}$). The total annual effort across all patches at this equilibrium ($E_{int}$).
+
+Once population has reached equilibrium at ($B_{curr}/B_{MSY}$) and ($E_{int}$), MPAs are implemented by setting effort in patches with MPAs ($E_{MPA}$) to zero. The population and fishery is simulated 50 years forward for a scenario with a network of MPAs and for a scenario where $E_{int}$ continues annually/
+
+
+## Parameterization and Model Tuning
+### Life History paramters
+
+ Life history parameters were obtained from the scientific literature
+
+### Fleet parameters
+
+  Fleet parameters were estimated using data from the Azores fishery
+
+## Model Tuning
+ 
+To tune the model to the Azores demersal fishery we use  spatial allocation of E{int} estimated by the model at equilibrium to observed 2010 VMS data. We calculate the sum of squared errors  (sse) for each run as :
+$$
+\begin{equation}
+sse = sum^{I}_{i=1}(E_iobserved-E_ipredicted)^2
+\end{equation} \;\; \;\;(21)
+$$
+
+We run a base case with parameters (defined in parameters section) and then compare the sse of the base case by changing:
+
+* fleet behavior (effort distributed ppue vs. ssb)
+* Range of R0s
+* Range of total efforts at equilbrium
+* B_{curr/Bmsy}
+
+###  Current stock biomass ($B{curr}/B_{MSY}$) and $R_0$
+
+We used Just Another Bayesian Assessment (JABBA) to fit a timeseries of historical fishery catch and an index of abundance to fit a generalized three parameter SPM by  of the form:
+$$SP_{t} = \frac{r}{m-1}B_{t}(1-(\frac{B_t}{K}^{m-1})\;\; \;\; (23)$$
+
+where $r$ is the intrinsic rate of population increase at time $t$, $K$ is the carrying capacity, $B$ is stock biomass at time *t*, and *m* is a shape parameter that determines at which $B/K$ ratio maximum surplus production is attained. 
+
+$K$ is  distributed among patches that contain adult habitat and scaled according to the relative quality of habitat in each patch ($hab_p$) to estimate carrying capacity of each patch $k_p$. $hab_p$ is based on the relative predicted abundance of black spotted seabream from [@Parra2017]
+
+* show eq for how K was scaled to R0
+* add model results and fit
+
+  * add rest of equations that show estimate of Bmsy, Fmsy, F, and fitting of index of abundance
+  * We assume *m* parameter- run sensitivity analysis
+  * *r* is based on range of 4 studies in the literature (FishBase)
+  * We compare 3 runs that use different combos of 2 different abudance indices (fishery-dependent and fishery-independent)
+  * Take parameters from run with lowest RMSE and run sensitivity analysis on different M parameters and inital starting stock depeletion assumptions
+  * Worth adding or investigating more on shorter cpue time series?
+
+
+### Notes
+Here is the original habitat quality layer:
+
+```{r evaluate=TRUE, fig.align="center"}
+bsb<-raster(paste0(boxdir,"bsb_distribution.tif"))#"tmp_sp/goraz_model.tif"))
+plot(bsb,legend=TRUE)
+plot(azores, add= TRUE)
+```
+
+Here is the adult and juvenile habitat layers at original resolution (1 x 1 $km^2$):
+
+```{r evaluate=TRUE, fig.align="center"}
+juve<-raster(paste0(boxdir,"habitat/orig_juve.tif"))
+adult<-raster(paste0(boxdir,"habitat/orig_adult.tif"))
+par(mfrow=c(2,1)) 
+plot(adult,col="gold",legend=FALSE)
+plot(juve,add=TRUE,col="red",legend=FALSE)
+plot(azores,add=TRUE)
+plot(land_sp,add=TRUE,col="black")
+legend("topright", title="",
+   c("Adult Habitat","Juvenile Habitat","Land"), fill=c("gold","red","black"), horiz=FALSE, cex=0.8)
+effort<-raster(paste0(boxdir,"tmp_sp/BLL.tif")) 
+
+
+plot(effort,legend=TRUE,main="VMS fishing hours (2002-2010)")
+
+```
+
+
+Aggregate habitat cells to approximately 500 $km^2$:
+```{r evaluate=TRUE, fig.align="center"}
+low_res_land<-raster(paste0(boxdir,"habitat/land_lo.tif"))
+ low_res_habitat<-raster(paste0(boxdir,"habitat/low_res_habitat.tif"))
+ low_res_habitat[low_res_habitat==0]<-NA
+par(mfrow=c(2,1)) 
+  plot(low_res_habitat,col=c("gold","red"), legend=FALSE)
+ plot(low_res_land,col="black",add=TRUE,legend=FALSE)
+ plot(azores,add=TRUE)
+ legend("topright", title="",
+    c("Adult Habitat","Juvenile Habitat","Land"), fill=c("gold","red","black"), horiz=FALSE, cex=0.8)
+
+effort_lo<-raster(paste0(boxdir,"low_res_run/effort_lo.tif"))
+
+plot(effort_lo,main="VMS Fishing Hours (2002-2010)")
+#legend("topright",title="VMS Fishing Hours (2002-2010)")
+plot(azores,add=TRUE)
+ 
+ 
+ cells<-(freq(low_res_habitat))
+ 
+ landcells<-length(low_res_land[low_res_land==-1])
+
+```
+
+
+
+ There are `r cells[1,2]` adult habitat cells and `r cells[2,2]` juvenile habitat cells, and `r landcells` cells defined as 'land'. The dispersal matrix does not allow movement over land cells.
+
+*Note: Juvenile habitat cells that are not adjacent to land should be removed. These cell classifications still need some work to represent relative locations of land, juvenile and adult habitat*
+
+
+
+# To Do
+
+* Finalize methods document
+
+* Double check all equations and units with code
+
+* Create function that makes all spatial layers at given resolution
+
+* Set up for model tuning using vms data
+
+* Change to patch instead of grid
+
+* Add juvenile movement to model
+
+* add dynamic price
+
+* improve model speed/increase resolution
+
+* Finalize habitat layers at workable resolution
+
+# References
+
+
+
+
+

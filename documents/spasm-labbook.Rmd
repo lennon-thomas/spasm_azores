@@ -1,0 +1,1936 @@
+---
+title: "SPASM Labbook"
+author: "Dan Ovando"
+date: "3/8/2018"
+output: html_documents
+---
+
+```{r}
+knitr::opts_chunk$set(echo = F, eval = F)
+```
+
+
+This repo is an updated version of the GASP module developed for Ovando et al. 2016 Fish and Fisheries. 
+
+Development is centered around support of 
+
+
+# Next ideas
+
+
+```{r}
+
+# demons::load_functions('../R')
+# load("../data/lhi.rda")
+library(tidyverse)
+library(spasm)
+library(stringr)
+library(rfishbase)
+library(modelr)
+library(Rcpp)
+library(RcppEigen)
+library(viridis)
+library(LBSPR)
+
+# sourceCpp("scripts/eigen_mat_mult.cpp")
+
+fish <- create_fish(adult_movement = 1e-3,
+                    larval_movement = 1e-3,
+                    density_dependence_form = 1,
+                    price = 10,
+                    query_fishbase = F,
+                    linf = 100,
+                    age_mature = 2,
+                    vbk = .2,
+                    t0 = 0,
+                    min_age = 0,
+                    max_age = 20,
+                    time_step = 1,
+                    weight_a = 1e-3,
+                    weight_b = 3)
+
+
+fleet <-
+  create_fleet(
+      eq_f = .2,
+    length_50_sel = 50,
+    delta = 2,
+    fish = fish,
+    mpa_reaction = 'concentrate',
+    price = 1,
+    cost = 1000,
+    beta = 1.3,
+    theta = 1e-1,
+    q = 1e-3,
+    fleet_model = 'open-access',
+    effort_allocation = 'gravity',
+    initial_effort = 10,
+    target_catch = 1
+  )
+
+```
+
+
+1. Make a "profit-gravity" model, where they distribute themselves by profits in each patch, allowing for heterogeneous costs in each patch
+
+
+```{r}
+fleet$effort_allocation <- 'profit-gravity'
+fleet$fleet_model <- 'constant-effort'
+
+tester <-
+  sim_fishery(
+    fish = fish,
+    fleet = fleet,
+    manager  = create_manager(mpa_size = 0, year_mpa = 10),
+    num_patches = 1,
+    burn_year = 25,
+    sim_years = 50,
+    enviro = sin(1:75),
+    enviro_strength = 0.001,
+    rec_driver = 'environment'
+  )
+
+tester %>% 
+  filter(age == min(age)) %>% 
+  ggplot(aes(year, numbers)) + 
+  geom_point()
+  
+  
+tester %>% 
+  group_by(year, patch) %>% 
+  summarise(te = sum(effort, na.rm = T))
+
+```
+
+OK that works now. Now, add in ability to have cost vary by patch. 
+
+```{r}
+fleet$cost_slope <-  0.1
+
+fleet$cost_function <- 'distance from port'
+
+
+tester <-
+  sim_fishery(
+    fish = fish,
+    fleet = fleet,
+    manager  = create_manager(mpa_size = 0, year_mpa = 10),
+    num_patches = 2,
+    burn_year = 25,
+    sim_years = 10
+  )
+
+
+tester %>% 
+  group_by(year, patch) %>% 
+  summarise(te = sum(effort, na.rm = T))
+
+
+```
+
+2. Allow q to vary by time
+
+
+```{r}
+fleet$tech_rate <- 0.1
+
+tester <-
+  sim_fishery(
+    fish = fish,
+    fleet = fleet,
+    manager  = create_manager(mpa_size = 0, year_mpa = 10),
+    num_patches = 2,
+    burn_year = 25,
+    sim_years = 10
+  )
+
+tester %>% 
+  group_by(year) %>% 
+  summarise(tf = sum(f, na.rm = T))
+
+
+
+```
+
+
+4. Add in recruitment variability and autocorrelation
+
+
+
+```{r}
+
+fish$t0 <- -0.1
+
+fish$sigma_r <- 0
+
+fish$rec_ac <- 0
+
+fleet$tech_rate <- 0.1
+
+fleet$initial_effort <-  1000
+
+tester <-
+  sim_fishery(
+    fish = fish,
+    fleet = fleet,
+    manager  = create_manager(mpa_size = 0, year_mpa = 10),
+    num_patches = 2,
+    burn_year = 25,
+    sim_years = 10
+  )
+
+tester %>% 
+  filter(age == 1) %>% 
+  group_by(year) %>% 
+  summarise(tn = sum(numbers, na.rm = T)) %>% 
+  ggplot(aes(year, tn)) + 
+  geom_point()
+
+```
+
+5. Incorporate sampling of length structure into model 
+
+No need to do this in the model, you can sample from the numbers at age afterwords. 
+
+```{r}
+
+n_at_age <- tester %>% 
+  filter(year == max(year)) %>% 
+  select(patch,age, numbers, numbers_caught)
+
+length_samples <- sample_lengths(n_at_age = n_at_age,
+                                 cv = 0.1,
+                                 k = fish$vbk,
+                                 linf = fish$linf,
+                                 t0 = fish$t0,
+                                 sample_type = 'catch',
+                                 percent_sampled = 1,
+                                 time_step = 1)
+
+    length_samples %>%
+      ggplot(aes(length_bin, numbers)) +
+      geom_col()
+
+```
+
+
+And now, age those length samples. 
+
+
+```{r}
+
+age_samples <- length_to_age(length_samples = length_samples,
+                             cv = 0.1,
+                             k = fish$vbk,
+                             linf = fish$linf,
+                             t0 = fish$t0,
+                             max_age = fish$max_age,
+                             min_age = fish$min_age,
+                             time_step = fish$time_step)
+
+age_samples$numbers %>% sum()
+
+wtf <- tester %>% filter(year == max(year)) %>% select(age,patch,numbers_caught) %>%
+  group_by(age) %>% summarise(numbers = sum(numbers_caught)) %>% 
+mutate(age_type = 'true') 
+
+sum(wtf$numbers)
+
+age_samples %>% 
+  mutate(age_type = 'sampled') %>% 
+  bind_rows(wtf) %>% 
+  ggplot(aes(age,numbers, fill = age_type)) + 
+  geom_col(position = 'dodge')
+
+
+tester %>% 
+  ggplot(aes(age,1 - exp(-f))) + 
+  geom_col(aes(fill = factor(patch)), position = 'dodge') + 
+  facet_wrap(~year)
+  
+
+tester %>% 
+  select(year,age,numbers, numbers_caught, patch) %>% 
+  gather('number_type','number',numbers:numbers_caught) %>% 
+  group_by(year, age,number_type) %>% 
+  summarise(tn = sum(number, na.rm = T)) %>% 
+  ggplot(aes(age,tn, fill = number_type)) + 
+  geom_col(position = 'dodge') + 
+  facet_wrap(~year)
+
+tester %>% 
+  group_by(year,age) %>% 
+  summarise(numbers = sum(numbers)) %>% 
+  ggplot(aes(age,numbers)) + 
+  geom_col() + 
+  facet_wrap(~year)
+  
+
+tester %>% 
+  group_by(year,patch) %>% 
+  summarise(te = sum(effort)) %>% 
+  ggplot(aes(patch, te, color = factor(year))) + 
+  geom_line()
+
+
+```
+
+Bring it all on home
+
+
+```{r}
+
+fleet$cost_slope <-  0.1
+
+fleet$cost_function <- 'distance from port'
+
+fish$t0 <- -0.1
+
+fish$sigma_r <- 0.75
+
+fish$rec_ac <- 0
+
+fleet$tech_rate <- 0.1
+
+fleet$initial_effort <-  1000
+
+fleet$effort_allocation <- 'profit-gravity'
+
+fleet$fleet_model <- 'constant-effort'
+
+fleet$price <-  100
+
+fleet$cost <- 10
+
+fleet$theta = 2e-3
+
+
+tester <-
+  sim_fishery(
+    fish = fish,
+    fleet = fleet,
+    manager  = create_manager(mpa_size = 0, year_mpa = 10),
+    num_patches = 10,
+    burn_year = 25,
+    sim_years = 10
+  )
+
+tester %>% 
+  group_by(year) %>% 
+  summarise(
+    tb = sum(ssb),
+    te = sum(effort),
+            tp = sum(profits)) %>% 
+              ggplot(aes(tb, te)) + 
+              geom_path()
+
+```
+
+
+```{r}
+tester %>% 
+  group_by(year, age) %>% 
+  summarise(tn = sum(numbers)) %>% 
+  ggplot(aes(age, tn, color = year)) + 
+  geom_line(position = 'dodge', alpha = 0.5, size = 1.5) + 
+  facet_grid(year ~ . , as.table = F) + 
+  theme_classic() + 
+  theme(axis.text.y = element_blank(),
+        panel.spacing = unit(0,'cm'),
+        strip.background = element_blank(),
+        strip.text = element_blank()) + 
+  scale_color_viridis()
+
+```
+
+
+```{r}
+tester %>% 
+  group_by(year,patch) %>% 
+  summarise(te = sum(effort)) %>% 
+  ggplot(aes(patch, te, color = factor(year))) + 
+  geom_line()
+```
+
+check length sampling
+```{r}
+
+n_at_age <- tester %>% 
+  filter(year == max(year)) %>% 
+  select(patch,age, numbers, numbers_caught)
+
+length_samples <- sample_lengths(n_at_age = n_at_age,
+                                 cv = 0.1,
+                                 k = fish$vbk,
+                                 linf = fish$linf,
+                                 t0 = fish$t0,
+                                 sample_type = 'catch',
+                                 percent_sampled = 1,
+                                 time_step = fish$time_step)
+
+    length_samples %>%
+      ggplot(aes(length_bin, numbers)) +
+      geom_col()
+
+```
+
+
+```{r}
+
+length_samples <- tester %>% 
+  select(year,patch,age, numbers, numbers_caught) %>% 
+  nest(-year) %>% 
+  mutate(length_samples = map(data, ~sample_lengths(n_at_age = .x,
+                                                   cv = 0.1,
+                                                    k = fish$vbk,
+                                 linf = fish$linf,
+                                 t0 = fish$t0,
+                                 sample_type = 'catch',
+                                 percent_sampled = 1,
+                                 fish$time_step))) %>% 
+  select(-data) %>% 
+  unnest()
+
+
+length_samples %>% 
+  ggplot(aes(length_bin, numbers, color = year)) + 
+  geom_line(position = 'dodge', alpha = 0.5, size = 1.5) + 
+  facet_grid(year ~ . , as.table = F) + 
+  theme_classic() + 
+  theme(axis.text.y = element_blank(),
+        panel.spacing = unit(0,'cm'),
+        strip.background = element_blank(),
+        strip.text = element_blank()) + 
+  scale_color_viridis()
+
+```
+
+check age sampling
+```{r}
+
+    age_samples <- length_to_age(length_samples = length_samples,
+                             cv = 0.1,
+                             k = fish$vbk,
+                             linf = fish$linf,
+                             t0 = fish$t0,
+                             max_age = fish$max_age,
+                             min_age = fish$min_age,
+                             time_step = fish$time_step)
+
+age_samples %>% 
+  mutate(age_type = 'sampled') %>% 
+  bind_rows(wtf) %>% 
+  ggplot(aes(age,numbers, fill = age_type)) + 
+  geom_col(position = 'dodge')
+
+
+tester %>% 
+  ggplot(aes(age,1 - exp(-f))) + 
+  geom_col(aes(fill = factor(patch)), position = 'dodge') + 
+  facet_wrap(~year)
+  
+
+tester %>% 
+  select(year,age,numbers, numbers_caught, patch) %>% 
+  gather('number_type','number',numbers:numbers_caught) %>% 
+  group_by(year, age,number_type) %>% 
+  summarise(tn = sum(number, na.rm = T)) %>% 
+  ggplot(aes(age,tn, fill = number_type)) + 
+  geom_col(position = 'dodge') + 
+  facet_wrap(~year)
+
+tester %>% 
+  group_by(year,age) %>% 
+  summarise(numbers = sum(numbers)) %>% 
+  ggplot(aes(age,numbers)) + 
+  geom_col() + 
+  facet_wrap(~year)
+  
+```
+
+This is a scotch project at home
+
+# What the hell is going on
+
+I can't convince myself that the hockey stick in mortality isn't a big somehow. So, how to debug this. 
+
+1. Create an artificial spike in the F rates and see if it propogates perfectly through the age structure 
+
+2. Write out a simple little loop population and test it that way
+
+3. Track the mortality it each cohort in the model itself and predict it. 
+
+4. Check for a normal bug again. 
+
+
+```{r}
+
+fish <- create_fish(adult_movement = 1e-3,
+                    larval_movement = 1e-3,
+                    density_dependence_form = 1,
+                    price = 10,
+                    query_fishbase = F,
+                    linf = 65,
+                    vbk = .2,
+                    t0 = -0.01,
+                    cv_len = 0.2,
+                    length_mature =  34,
+                    m = 0.2,
+                    min_age = 0,
+                    max_age = floor(-log(0.01) / 0.2),
+                    time_step = 1,
+                    weight_a = 0.0245,
+                    weight_b = 2.79, 
+                    sigma_r = 0,
+                    rec_ac = 0)
+
+fleet <-
+  create_fleet(
+    length_50_sel = 0.25*fish$linf,
+    delta = 1,
+    fish = fish,
+    mpa_reaction = 'concentrate',
+    price = 1,
+    cost = 1000,
+    beta = 1.3,
+    theta = 1e-1,
+    q = 1e-3,
+    fleet_model = 'constant-effort',
+    effort_allocation = 'simple',
+    initial_effort = 0,
+    target_catch = 0
+  )
+
+
+fish$rec_ac <- 0
+
+fish$sigma_r <- 0
+
+fish$cv_len <- 0
+
+fish$m <- 0.1
+
+fish$max_age <- 100
+
+fish <- update_fish(fish)
+
+fleet$length_50_sel <- 0* fish$linf
+
+fleet$initial_effort <- 200
+
+fleet <- update_fleet(fleet, fish)
+
+  cc_fishery <- sim_fishery(fish = fish, fleet = fleet,
+    manager  = create_manager(mpa_size = 0, year_mpa = 10),
+    num_patches = 1,
+    burn_year = 30,
+    sim_years = 70
+  )
+
+  
+  
+test_data <- cc_fishery %>% 
+  ungroup() %>% 
+  filter(year == max(year)) %>% 
+  group_by(age) %>% 
+  summarise(numbers = sum(numbers)) %>% 
+  mutate(log_numbers = log(numbers)) %>% 
+  ungroup()
+
+peak_age <- test_data$age[test_data$numbers == max(test_data$numbers)]
+
+cc <- lm(log_numbers ~ age, data = test_data)
+
+summary(cc)
+
+cc_fishery$f %>% unique() + fish$m
+
+test_data %>% 
+  ggplot(aes(age, log_numbers)) + 
+  geom_point()
+
+```
+
+```{r}
+
+
+n_mat <- matrix(NA, nrow = 20, ncol = 20)
+
+n_mat[,1] <-  100
+
+n_mat[1,] <-  100 * exp(-.1 * 0:19)
+
+ fs <-  c(rep(.1,10), rep(.8,10))
+ 
+ fs <- rlnorm(20, log(.2),2)
+
+for (t in 2:20){
+  
+  n_mat[t,2:20] <- n_mat[t - 1,1:19] * exp(-fs[t])
+  
+  }
+  
+wtf <- n_mat[20,] %>% log()
+
+data_frame(a = wtf, b = lead(wtf,1)) %>% 
+  mutate(survival = b - a,
+         fs = rev((-fs)))
+
+plot(wtf)
+
+
+
+```
+
+Well I'll be damned. The mortality rate 10 years ago is burned in the the survival of age 25 year old individuals (the slope from 25 to 26). Which I guess makes some sense. 25 years ago X% survived to age 26. 
+
+And duh, it doesn't work perfectly once you throw in a recruitment function since it's no longer a constant input, at least until it hits equilibirum. So, you're putting in less fish, which makes the survival rate actually a bit higher than you'd think, since there are proportionally more older fish than under constant recruitment
+
+# Test assessment modules
+
+A catch curve
+
+```{r}
+
+
+fish <- create_fish(adult_movement = 1e-3,
+                    larval_movement = 1e-3,
+                    density_dependence_form = 1,
+                    price = 10,
+                    query_fishbase = F,
+                    linf = 65,
+                    vbk = .2,
+                    t0 = -0.01,
+                    cv_len = 0,
+                    length_50_mature  =  37,
+                    length_95_mature = 38,
+                    m = 0.2,
+                    min_age = 0,
+                    max_age = floor(-log(0.01) / fish$m),
+                    time_step = 0.25,
+                    weight_a = 0.0245,
+                    weight_b = 2.79, 
+                    sigma_r = 0,
+                    rec_ac = 0)
+
+fleet <-
+  create_fleet(
+    length_50_sel = 0.25*fish$linf,
+    delta = 1,
+    fish = fish,
+    mpa_reaction = 'concentrate',
+    price = 1,
+    cost = 1000,
+    beta = 1.3,
+    theta = 1e-1,
+    q = 1e-3,
+    fleet_model = 'constant-effort',
+    effort_allocation = 'simple',
+    initial_effort = 0,
+    target_catch = 0
+  )
+
+
+fish$rec_ac <- 0
+
+fish$sigma_r <- 0
+
+fish$cv_len <- 0.1
+
+fish$max_age <- ((-log(0.01)/fish$m)/fish$time_step) %>% floor()
+
+fish <- update_fish(fish)
+
+fleet$length_50_sel <- 0.5* fish$linf
+
+fleet$initial_effort <- 50
+
+fleet <- update_fleet(fleet, fish)
+
+  cc_fishery <- sim_fishery(fish = fish, fleet = fleet,
+    manager  = create_manager(mpa_size = 0, year_mpa = 10),
+    num_patches = 1,
+    burn_year = 100,
+    sim_years = 300
+  )
+
+
+n_at_age <- cc_fishery %>% 
+  filter(year == max(year)) %>% 
+  select(patch,age, numbers, numbers_caught)
+
+length_samples <- sample_lengths(n_at_age = n_at_age,
+                                 cv = fish$cv_len,
+                                 k = fish$vbk,
+                                 linf = fish$linf,
+                                 t0 = fish$t0,
+                                 sample_type = 'catch',
+                                 percent_sampled = 1,
+                                 time_step = fish$time_step) %>% 
+  mutate(year = 1)
+
+z <- run_catch_curve(length_comps = length_samples, fish = fish)
+z
+mean(cc_fishery$f) + fish$m
+
+```
+
+OK so it's not that, the length resampling works 
+
+LBSPR
+
+```{r}
+
+
+lbspr_fish <-  new("LB_pars")
+
+lbspr_fish@Species <- 'WTF'
+
+lbspr_fish@Linf <- fish$linf
+
+lbspr_fish@M <- fish$m
+
+lbspr_fish@MK <- fish$m / fish$vbk
+
+lbspr_fish@Steepness <- fish$steepness
+
+# lbspr_fish@CVLinf <- fish$cv_len
+
+lbspr_fish@L50 <- fish$length_50_mature
+
+lbspr_fish@L95 <- fish$length_95_mature
+
+lbspr_fish@Walpha <- fish$weight_a
+# 
+lbspr_fish@Wbeta <- fish$weight_b
+
+lbspr_fish@SL50 <- fleet$length_50_sel
+
+lbspr_fish@SL95 <- fleet$length_50_sel + fleet$delta
+
+lbspr_fish@FM <- mean(cc_fishery$f) / fish$m
+
+lbspr_fish@BinWidth <- 1
+
+lbspr_fish@L_units <- 'cm'
+
+lbspr_sim <- LBSPRsim(lbspr_fish, Control = list(modtype = 'absel', Nage = fish$max_age / fish$time_step))
+
+plotSim(lbspr_sim)
+ 
+lbspr_lengths <- new("LB_lengths", LB_pars=lbspr_fish, dataType = 'freq')
+
+lbspr_lens <- length_samples %>%
+  spread(year,numbers) %>% 
+  mutate(length_bin = length_bin + 0.5) %>% 
+  rename(LMids = length_bin) %>% 
+  as.matrix()
+
+  lbspr_lengths@LData <- lbspr_lens[,-1] %>% as.matrix()
+  
+  lbspr_lengths@LMids <- lbspr_lens[,1] %>% as.numeric()
+  
+  lbspr_lengths@NYears <- ncol(lbspr_lens) - 1 # - 1
+  
+  lbspr_lengths@Years <- 1:lbspr_lengths@NYears 
+    
+  lbspr_fit <- LBSPRfit(lbspr_fish, lbspr_lengths,Control = list(modtype = 'absel', Nage = fish$max_age / fish$time_step))
+
+  a = fit_lbspr(fish = fish, fleet = fleet, length_comps = length_samples)
+
+```
+```{r}
+plotSize(lbspr_fit)
+
+lbspr_fit@SL95
+
+
+```
+
+So close!!!
+
+Let's do one more check and see if you get the same unfished population
+
+
+
+# Checking on selectivity
+
+It seems like something is going wrong in the length sampling; the length comps don't seem to be matching selecitivity. 
+
+
+```{r}
+
+fish$time_step <- 0.25
+
+fish <- update_fish(fish)
+
+fleet$length_50_sel
+
+fleet$initial_effort <- 100
+
+fleet <- update_fleet(fleet = fleet, fish = fish)
+check <- sim_sampling(fish = fish, fleet = fleet, percent_sampled = 1)
+
+check <- check %>% 
+  filter(year == max(year))
+
+length_comps <- check %>% 
+  select(catch_length_samples) %>% 
+  unnest() %>% 
+  mutate(year = 1)
+
+check %>% 
+select(n_at_age) %>% 
+  unnest() %>% 
+  mutate(sel = fleet$sel_at_age,
+         mean_length = fish$length_at_age) %>% 
+  ggplot(aes(age,numbers_caught, fill = sel)) + 
+  geom_point(shape = 21)
+
+```
+
+So that looks good, so I'm guessing that there's a problem in the conversion from age to length in the length sampling. 
+
+```{r}
+
+check %>% 
+select(catch_ages_samples) %>% 
+  unnest() %>% 
+  mutate(sel = fleet$sel_at_age,
+         mean_length = fish$length_at_age) %>% 
+  ggplot(aes(age,numbers, fill = sel)) + 
+  geom_point(shape = 21)
+
+```
+
+```{r}
+
+check %>% 
+select(catch_length_samples) %>% 
+  unnest() %>% 
+  ggplot(aes(length_bin,numbers)) + 
+  geom_point(shape = 21) + 
+  geom_vline(aes(xintercept = fleet$length_50_sel))
+
+```
+
+
+```{r}
+
+lbspr_fish <-  new("LB_pars")
+
+lbspr_fish@Species <- 'WTF'
+
+lbspr_fish@Linf <- fish$linf
+
+lbspr_fish@M <- fish$m
+
+lbspr_fish@MK <- fish$m / fish$vbk
+
+lbspr_fish@Steepness <- fish$steepness
+
+# lbspr_fish@CVLinf <- fish$cv_len
+
+lbspr_fish@L50 <- fish$length_50_mature
+
+lbspr_fish@L95 <- fish$length_95_mature
+
+lbspr_fish@Walpha <- fish$weight_a
+# 
+lbspr_fish@Wbeta <- fish$weight_b
+
+lbspr_fish@SL50 <- fleet$length_50_sel
+
+lbspr_fish@SL95 <- fleet$length_50_sel + fleet$delta
+
+lbspr_fish@FM <- mean(check$fishery[[1]]$f) / fish$m
+
+lbspr_fish@BinWidth <- 1
+
+lbspr_fish@L_units <- 'cm'
+
+
+lbspr_sim <- LBSPRsim(lbspr_fish, Control = list(modtype = 'absel', Nage = 100)) #fish$max_age / fish$time_step - 25))
+
+
+spasm_lengths <- check %>% 
+  filter(year == max(year)) %>% 
+  select(pop_length) %>% 
+  unnest() %>% 
+  mutate(source = 'spasm')
+
+lbspr_lengths <- lbspr_sim@pLPop %>% 
+  as_data_frame() %>% 
+  select(LMids, PopUF) %>% 
+  rename(length_bin = LMids,numbers = PopUF) %>% 
+  mutate(source = 'lbspr')
+
+comp_lengths <- spasm_lengths %>% 
+  bind_rows(lbspr_lengths) %>% 
+  group_by(source) %>% 
+  mutate(pnumbers = numbers / sum(numbers)) 
+
+comp_lengths %>% 
+  ggplot(aes(length_bin, pnumbers, fill = source)) + 
+  geom_point(shape = 21) + 
+  geom_vline(data = data_frame(lata = fish$length_at_age %>% floor()), aes(xintercept =lata))
+
+```
+
+
+```{r}
+  a = fit_lbspr(fish = fish, fleet = fleet, length_comps = length_comps)
+a
+check$fishery[[1]]$f %>% unique() / fish$m
+
+```
+
+AHA. Setting Nage to max_age + 2 seems to do the trick, probably to account for the fact that you don't have a zero, plus some other goofiness. 
+
+So the last question, why the hell aren't the distributions perfectly centered on the mean length_at_age values?, ah not a problem, just an artifact of Geom_col
+
+# Move to flexible time
+
+```{r}
+fish <- create_fish(adult_movement = 1e-3,
+                    larval_movement = 1e-3,
+                    density_dependence_form = 1,
+                    price = 10,
+                    query_fishbase = F,
+                    linf = 100,
+                    age_mature = 2,
+                    vbk = .2,
+                    t0 = -0.01,
+                    min_age = 0,
+                    max_age = 20,
+                    time_step = 1,
+                    weight_a = 1e-3,
+                    weight_b = 3)
+
+
+fleet <-
+  create_fleet(
+      eq_f = .2,
+    length_50_sel = 50,
+    delta = 2,
+    fish = fish,
+    mpa_reaction = 'concentrate',
+    price = 1,
+    cost = 1000,
+    beta = 1.3,
+    theta = 1e-1,
+    q = 1e-3,
+    fleet_model = 'open-access',
+    effort_allocation = 'gravity',
+    initial_effort = 10,
+    target_catch = 1
+  )
+
+fleet$effort_allocation <- 'profit-gravity'
+fleet$fleet_model <- 'constant-effort'
+
+tester <-
+  sim_fishery(
+    fish = fish,
+    fleet = fleet,
+    manager  = create_manager(mpa_size = 0, year_mpa = 10),
+    num_patches = 1,
+    burn_year = 25,
+    sim_years = 50
+  )
+
+```
+THE CONCENSUS. lbspr is useless for estimating things from other operating models, unless you happen to perfectly tune nage manually. Give up on it for now, spend the rest of the flight showing a simple F and SPR calculation given knowledge of selectivity. LBSPR may be useful for real data, but this actually calls that into question for me. The world you're simulating might be less common, but it's not insane, and it's troubling that LBSPR can't replicate it at all. This operating model should just be a special case of the broader world of possible scenarios, and LBSPR should be able to pick it up if it's working correctly. 
+
+# Issues with aging
+
+There's a slight problem with the age conversions at large lengths. For very small growth increments, multiple age classess fall within one length bin, where a length bin is only 1cm. So, the numbers in that bin then get smoothed out over the ages. Not a big deal, but it's somethimg
+
+
+# scrooge support
+
+So what you're up to now is a) making sure that spasm still works and b) get the economic indicators up and running. Once you've done that, you can also revisit your length comp generation and sampling. Eventually I'd kind of like to add in the growth-type-groups thing 
+
+
+```{r}
+
+library(spasm)
+library(tidyverse)
+
+fish <- spasm::create_fish(linf = 100)
+
+fleet <- spasm::create_fleet(fish = fish)
+
+manager <- spasm::create_manager(mpa_size = 0)
+
+sim <- spasm::sim_fishery(fish = fish,
+                   fleet = fleet, 
+                   manager = manager,
+                   num_patches = 1,
+                   sim_years = 100,
+                   burn_year = 50)
+
+sim %>% 
+  group_by(year) %>% 
+  summarise(ssb = sum(effort)) %>% 
+  ggplot(aes(year, ssb)) + 
+  geom_line() + 
+  geom_point()
+
+```
+
+sweet, that thing still works and looks about right. 
+
+Now let's see if open access as it is currently defined still works
+
+
+```{r}
+
+fleet <-
+  spasm::update_fleet(
+  fleet = purrr::list_modify(
+  fleet,
+  fleet_model = "open-access",
+  theta = 0.025,
+  cost = 1,
+  target_catch = 100,
+  sigma_effort = 1
+  ),
+  fish = fish
+  )
+
+sim <- spasm::sim_fishery(fish = fish,
+                   fleet = fleet, 
+                   manager = manager,
+                   num_patches = 1,
+                   sim_years = 20,
+                   burn_year = 10)
+
+sim %>% 
+  group_by(year) %>% 
+  summarise(ssb = sum(biomass)) %>% 
+  ggplot(aes(year, ssb)) + 
+  geom_line() + 
+  geom_point()
+
+```
+
+OK, looks like that works for all the basic functional forms, need to check on supplied catch sometime but that's a problem for another day. 
+
+# Fixing selectivity at age
+
+Right, so now one issue is that selectivity assumes that all fish of a certain age are exactly a certain length. 
+The problem then is when you sample from that, and then try and add "noise" and estimate F based on lengths, you're getting it wrong. So, you need to adjust the f at age by the mean selectivy at age, where that is based on the size distribution at a given age
+
+
+So, how to do that. For any age, you have a number of individuals and a mean length at age
+
+One option would be to just say simulate an arbitrary number of fish at a age, converting to lengths with appropriate noise, and then taking the mean selectivity of that bunch? 
+
+The advantage to that is you can actually still just do that in the create_fish object, since all it will do is scale the selectivity at age a bit. Is there a problem with that? It doesn't deal with the gtg thing, but let's shelve that particular problem for a moment. Since the problem there is that things that grow faster, if they are cohort specific, should be less likely to make it to old age, and so there should technically be less of the larger end of things at later age. i.e. what you really want to do is track cohorts of different growth parameters at the same age... but blah
+
+That's more than LIME does, so good enough for me right now. 
+
+
+```{r}
+fish <- update_fish(purrr::update_list(fish, cv_len = 0.25))
+fleet <- create_fleet(fish = fish, length_50_sel = 50)
+
+fleet$sel_at_age %>% plot()
+
+```
+
+
+OK, moved from fishbase to fishlife, let's test
+
+
+```{r}
+
+library(rstan)
+library(FishLife)
+library(spasm)
+library(tidyverse)
+
+fish <- create_fish(query_fishlife = T, mat_mode = "length")
+
+fleet <- create_fleet(fish = fish)
+
+manager <- create_manager(mpa_size = 0)
+
+fleet <-
+  spasm::update_fleet(
+  fleet = purrr::list_modify(
+  fleet,
+  fleet_model = "open-access",
+  initial_effort = 10,
+  theta = 0.01,
+  cost = 20,
+  price = 1,
+  target_catch = 100,
+  sigma_effort = 0.1,
+  length_50_sel = 50,
+  theta_tuner = 0.1
+  ),
+  fish = fish
+  )
+
+sim <- spasm::sim_fishery(fish = fish,
+                   fleet = fleet, 
+                   manager = manager,
+                   num_patches = 1,
+                   sim_years = 100,
+                   burn_year = 50)
+
+sim %>% 
+  group_by(year) %>% 
+  summarise(ssb = sum(profits)) %>% 
+  ggplot(aes(year, ssb)) + 
+  geom_line() + 
+  geom_point()
+
+
+```
+
+
+Great! that works now, makes life history less messy at least. 
+
+Reminder: as a scenario to test, pass the actual catch histories from the channel islands and see how that works. 
+
+Now, let's check on sampling lengths
+
+
+```{r}
+
+  length_and_age_comps <- sim %>%
+    select(year,patch,age, numbers, numbers_caught) %>%
+    nest(-year,-patch, .key = n_at_age)
+
+  length_and_age_comps <- length_and_age_comps %>%
+    mutate(pop_length = map(n_at_age, ~sample_lengths(n_at_age = .x,
+                                                      cv = fish$cv_len,
+                                                      k = fish$vbk,
+                                                      linf = fish$linf,
+                                                      t0 = fish$t0,
+                                                      sample_type = 'catch',
+                                                      percent_sampled = 1,
+                                                      time_step = fish$time_step)))
+  
+    length_and_age_comps <- length_and_age_comps %>%
+    mutate(pop_ages = map(pop_length, ~length_to_age(length_samples = .x,
+                                                     cv = fish$cv_len,
+                                                     k = fish$vbk,
+                                                     linf = fish$linf,
+                                                     t0 = fish$t0,
+                                                     max_age = fish$max_age,
+                                                     min_age = fish$min_age,
+                                                     time_step = fish$time_step)))
+    
+    sampled <- length_and_age_comps$pop_ages[[50]] %>% 
+      mutate(source = "sampled")
+    
+    true <- length_and_age_comps$n_at_age[[50]]  %>% 
+      select(age, numbers) %>% 
+      mutate(source = "true")
+    
+    sampled %>% 
+      bind_rows(true) %>% 
+      group_by(source) %>%
+      mutate(numbers = numbers / sum(numbers)) %>%
+      ungroup() %>%
+      ggplot(aes(age, numbers, fill = source)) + 
+      geom_density(stat = "identity", alpha = 0.5)
+    
+
+```
+
+Sweet, that actually works pretty damn well! fairly shocked by that honestly. So, you might be ready to go. and get started model fitting tomorrow. damn. 
+
+Let's quickly check on the stock assessment stuff and see if that still works (sort of) before diving into the model fitting. 
+
+
+```{r}
+
+true_f <- sim %>% 
+  group_by(year,patch) %>% 
+  summarise(f = unique(f)) #%>% 
+
+length_comps <- length_and_age_comps %>% 
+  select(year,patch, pop_length) %>% 
+  unnest()
+
+length_comps <- length_comps %>% 
+  nest(-year,-patch, .key = 'length_comps') %>% 
+  left_join(true_f, by = c('year','patch'))
+
+assessments <- length_comps %>% 
+  mutate(assessments = map2(length_comps, f, run_assessments, fish = fish, fleet = fleet))
+
+
+```
+
+# Fixing length and age sampling
+
+OK, there's still something wrong with the way you're sampling lengths. No moving on until under perfect circumstances you can perfectly reproduce the true age structure. 
+
+
+Right off the bat the problem looks obvious: you're not correctly disouncting the probability of being in a given age by the chance of actually living to that age, and so the sampes are filling things out to arbitrary max ages
+
+```{r}
+library(rstan)
+library(FishLife)
+library(spasm)
+library(tidyverse)
+
+fish <- create_fish(query_fishlife = T, mat_mode = "length", max_age = 100, time_step = 0.25)
+
+fleet <- create_fleet(fish = fish)
+
+manager <- create_manager(mpa_size = 0)
+
+fleet <-
+  spasm::update_fleet(
+  fleet = purrr::list_modify(
+  fleet,
+  fleet_model = "open-access",
+  initial_effort = 1,
+  theta = 0.01,
+  cost = 30,
+  price = 1,
+  target_catch = 100,
+  sigma_effort = 0,
+  length_50_sel = 0,
+  theta_tuner = 0.5
+  ),
+  fish = fish
+  )
+
+sim <- spasm::sim_fishery(fish = fish,
+                   fleet = fleet, 
+                   manager = manager,
+                   num_patches = 1,
+                   sim_years = 100,
+                   burn_year = 50,
+                   time_step = fish$time_step)
+
+sim %>% 
+  group_by(year) %>% 
+  summarise(ssb = sum(effort)) %>% 
+  ggplot(aes(year, ssb)) + 
+  geom_line() + 
+  geom_point()
+
+ length_and_age_comps <- sim %>%
+    select(year,patch,age, numbers, numbers_caught) %>%
+    nest(-year,-patch, .key = n_at_age) %>% 
+   filter(year == max(year))
+
+  length_and_age_comps <- length_and_age_comps %>%
+    mutate(catch_length = map(n_at_age, ~sample_lengths(n_at_age = .x,
+                                                      cv = fish$cv_len,
+                                                      k = fish$vbk,
+                                                      linf = fish$linf,
+                                                      t0 = fish$t0,
+                                                      sample_type = 'population',
+                                                      percent_sampled = 1,
+                                                      time_step = fish$time_step)))
+  
+    length_and_age_comps <- length_and_age_comps %>%
+    mutate(catch_ages = map(catch_length, ~length_to_age(length_samples = .x,
+                                                     cv = fish$cv_len,
+                                                     k = fish$vbk,
+                                                     linf = fish$linf,
+                                                     t0 = fish$t0,
+                                                     max_age = fish$max_age,
+                                                     min_age = fish$min_age,
+                                                     time_step = fish$time_step)))
+    
+check_ages <- length_and_age_comps %>% 
+  select(year, patch, n_at_age, catch_ages) %>% 
+  unnest() %>% 
+  select(-age1, -numbers_caught) %>% 
+  rename(sampled_catch_numbers = numbers1) %>% 
+  gather(source, numbers, contains("numbers")) %>% 
+  group_by(year, source) %>% 
+  mutate(snumbers = numbers /sum(numbers)) %>% 
+  ungroup() %>% 
+    filter(year == max(year))
+
+
+wtf <- check_ages %>% 
+  select(-snumbers) %>% 
+  spread(source, numbers)
+
+a = check_ages %>% 
+  mutate(ln = log(numbers)) %>% 
+  filter(numbers >= 1) %>% 
+  ggplot(aes(age, ln, fill = source)) + 
+  geom_col(stat = "identity", alpha = 0.5, position = "dodge")
+
+a
+
+
+length_and_age_comps %>% 
+  filter(year == max(year)) %>% 
+  select(catch_length) %>% 
+  unnest() %>% 
+  filter(length_bin <150) %>% 
+  ggplot() +
+  geom_col(aes(length_bin, numbers)) +
+  geom_vline(xintercept = fish$linf) +
+  geom_vline(xintercept = fish$length_at_age)
+  
+
+```
+
+Looks like your length conversions are OK, so your problem is in then assigning those lengths to ages. 
+
+Oh, well duh, you're not accounting for probability of being in a given age along with length at age. 
+
+Now wait, are you making this waaaaay too complicated? Since you've introduced variation in the size at age, which is on average correct, why not just use VBK to transfer back to ages? It'll be a little off due to the smoothing, but not as bad as it is now. 
+
+Did that for now, and for now since you dont' need ages, since fuck catch curves at the moment, ignore the aging of the length samples until you can talk to someone about it. 
+
+
+# making scrooge more responsive
+
+```{r}
+library(rstan)
+library(FishLife)
+library(spasm)
+library(tidyverse)
+
+set.seed(42)
+fish <-
+  create_fish(
+    query_fishlife = T,
+    mat_mode = "length",
+    linf = 100,
+    max_age = 30,
+    time_step = 1,
+    sigma_r = 0,
+    price = 1,
+    price_cv = 0.75,
+    price_ac = 0.75,
+    steepness = 0.6
+  )
+
+fleet <- create_fleet(
+  fish = fish,
+  cost = 3,
+  cost_cv =  0.75,
+  cost_ac = 0.75,
+  q_cv = .5,
+  q_ac = .95,
+  profit_lags = 0
+)
+
+fleet <-
+  spasm::update_fleet(
+    fleet = purrr::list_modify(
+      fleet,
+      fleet_model = "open-access",
+      initial_effort = 10,
+      cost = 1,
+      target_catch = 100,
+      sigma_effort = 0,
+      length_50_sel = 50,
+      theta_tuner = .75
+    ),
+    fish = fish
+  )
+
+
+sim <- spasm::sim_fishery(
+  fish = fish,
+  fleet = fleet,
+  manager = create_manager(mpa_size = 0),
+  num_patches = 1,
+  sim_years = 100,
+  burn_year = 50,
+  time_step = fish$time_step
+)
+
+sim %>% 
+  group_by(year) %>% 
+  summarise(ssb = sum(ssb)) %>% 
+  ggplot(aes(year, ssb))  +
+  geom_point()
+
+
+sim %>% 
+  group_by(year) %>% 
+  summarise(effort = mean(effort),
+            price = unique(price),
+            cost = unique(cost),
+            profits = sum(profits),
+            revs = sum(biomass_caught * price)) %>% 
+  ungroup() %>% 
+  mutate(delta_price = price - lag(price),
+         delta_cost = cost - lag(cost)) %>% 
+  gather(variable, value, -year, -effort) %>% 
+  ggplot(aes((value), effort, color = variable)) +
+  geom_point(show.legend = F) +
+  facet_wrap(~variable, scales = "free")
+
+
+```
+
+So that's the problem at it's core. Well not sure if it's a problem, but reality. The relationship between price and profits is only loose. Wonder if part of that is an artifact of fishing down the initial stock...
+
+A little bit, the core fact is tshat price and costs themselves are weak signals of effort, even in this stylized world. This goes back to your original ideas of caculating dE/dprice, and of course realizing that it is completely state dependent. So, it's no surprise that prices and costs themselves are not informative. 
+
+At its core then, I think you need to abandon shock scrooge; it has to have some structural parameters to it... unless you did soemthing interesting like lags of prices and costs... takens theorem? Or should you focus more on integrating effort priors themselves, thinking that prices and costs themselves don't tell you much..., at least if you want to stick with a classic model of open access fisheries, which seems reasonable. 
+
+
+
+
+parameterize price shocks on the scale of Tyler's database!
+
+
+```{r}
+  fish_prices <-
+    readr::read_csv("~/Box Sync/Databases/Exvessel Prices/Exvessel Price Database.csv") 
+
+price_cv <- fish_prices %>% 
+  group_by(scientific_name) %>% 
+  summarise(cv = sd(exvessel, na.rm = T) / mean(exvessel, na.rm = T)) 
+
+price_cv %>% 
+  ggplot(aes(cv)) + 
+  geom_histogram()
+
+```
+
+
+# Restructuring cost and theta tuning
+
+`scrooge` now has a much better approach for tuning costa and theta. First, calculate MSY. Then, calculate e_msy, and then tune costs to achieve a desired open access depletion. 
+
+So, the first step here, is that you need to create a est-msy function for SPASM. 
+
+Should be pretty straightforward, just run sim-fishery a bunch and tune for yields?
+
+```{r}
+library(rstan)
+library(FishLife)
+library(spasm)
+library(tidyverse)
+
+set.seed(42)
+fish <-
+  create_fish(
+    query_fishlife = T,
+    mat_mode = "length",
+    linf = 100,
+    max_age = 30,
+    time_step = 1,
+    sigma_r = 0,
+    price = 1,
+    price_cv = 0,
+    price_ac = 0,
+    steepness = 0.6
+  )
+
+fleet <- create_fleet(
+  fish = fish,
+  cost = 3,
+  cost_cv =  0,
+  cost_ac = 0,
+  q_cv = 0,
+  q_ac = 0,
+  profit_lags = 0,
+  length_50_sel = 50
+)
+
+check <- estimate_msy(10, fish = fish, fleet = fleet)
+
+
+efforts = seq(10,400, by = 10)
+
+yields <- NA
+
+for (i in seq_along(efforts)){
+  
+  yields[i] <- estimate_msy(efforts[i], fish = fish, fleet = fleet)
+  
+}
+
+e_msy_guess <- efforts[yields == min(yields)]
+
+msy_fit <- nlminb(e_msy_guess, estimate_msy, fish = fish, fleet = fleet, lower = 0)
+
+e_msy <- msy_fit$par
+
+b_msy <- estimate_msy(e_msy, fish = fish, fleet = fleet, use = "other")
+
+
+  fleet$theta <- p_response
+
+  msy <- -msy_fit$objective
+  
+costs = seq(.25,10, by = 0.25)
+
+ss <- NA
+
+for (i in seq_along(costs)){
+  
+  ss[i] <- estimate_costs(cost = costs[i], 
+                       fish = fish, 
+                       fleet = fleet,
+                       msy = msy,
+                       e_msy = e_msy,
+                       b_msy = b_msy,
+                       p_response = p_response,
+                       b_v_bmsy_oa = 0.5)
+
+  
+}
+
+cost_guess <- costs[ss == min(ss)]
+
+cost <-
+  nlminb(
+  cost_guess,
+  estimate_costs,
+  fish = fish,
+  fleet = fleet,
+  lower = 0,
+  msy = msy,
+  e_msy = e_msy,
+  b_msy = b_msy,
+  p_response = p_response,
+  b_v_bmsy_target = 0.5
+  )
+  
+
+
+```
+
+```{r}
+
+library(rstan)
+library(FishLife)
+library(spasm)
+library(tidyverse)
+
+set.seed(42)
+fish <-
+  create_fish(
+    query_fishlife = T,
+    mat_mode = "length",
+    linf = 100,
+    max_age = 30,
+    time_step = 1,
+    sigma_r = 0,
+    price = 1,
+    price_cv = 0,
+    price_ac = 0,
+    steepness = 0.6
+  )
+
+
+
+fleet <- create_fleet(
+  fish = fish,
+  cost = 3,
+  cost_cv =  0,
+  cost_ac = 0,
+  q_cv = 0,
+  q_ac = 0,
+  profit_lags = 4,
+  length_50_sel = 50,
+  theta = 0.5,
+  fleet_model = "open-access",
+  initial_effort = 0.1
+)
+
+fleet$e_msy <-  NA
+
+fleet$p_msy <-  NA
+
+sim <- sim_fishery(
+  fish = fish,
+  fleet = fleet,
+  manager = create_manager(mpa_size = 0),
+  num_patches = 1,
+  sim_years = 100,
+  burn_year = 50,
+  time_step = fish$time_step,
+  est_msy = T,
+  tune_costs = T,
+  b_v_bmsy_oa = 1.5
+)
+
+sim %>% 
+  group_by(year) %>% 
+  summarise(b = sum(biomass)) %>% 
+  ggplot(aes(year, b)) + 
+  geom_point()
+  
+
+```
+
+```{r}
+library(rstan)
+library(FishLife)
+library(spasm)
+library(tidyverse)
+
+set.seed(42)
+fish <-
+  create_fish(
+    query_fishlife = T,
+    mat_mode = "length",
+    linf = 100,
+    max_age = 30,
+    time_step = 1,
+    sigma_r = 0,
+    price = 100,
+    price_cv = 0,
+    price_ac = 0,
+    steepness = 0.6
+  )
+
+
+
+fleet <- create_fleet(
+  fish = fish,
+  cost = 3,
+  cost_cv =  0,
+  cost_ac = 0,
+  q_cv = 0,
+  q_ac = 0,
+  profit_lags = 4,
+  length_50_sel = 50,
+  theta = 0.1,
+  fleet_model = "open-access",
+  initial_effort = 100
+)
+
+fleet$e_msy <-  NA
+
+fleet$p_msy <-  NA
+
+sim <- sim_fishery(
+  fish = fish,
+  fleet = fleet,
+  manager = create_manager(mpa_size = 0),
+  num_patches = 1,
+  sim_years = 100,
+  burn_year = 50,
+  time_step = fish$time_step,
+  est_msy = T,
+  tune_costs = T,
+  b_v_bmsy_oa = 0.5
+)
+
+sim %>% 
+  group_by(year) %>% 
+  summarise(p = sum(profits),
+            ef = unique(effort),
+            b = sum(biomass)) %>% 
+  ggplot(aes(year, ef)) + 
+  geom_point()
+```
+
+
+
+
+# fixing movement
+
+how far is that point from that point? It's the minimum arc length between the two points
+
+so, lets say that you have 10 patches, and you're at patch 9. So that's 324 degrees, which would be 5.654 radians. Now suppose you want the distance to patch 1. Patch one is either at position 0 degrees, or at position 360 degrees. so at 0 radians. ah wait you don't need to mess with radias, dumbass. 
+
+324° × π/180
+
+
+center at mean range
+
+```{r}
+
+n <- 100
+
+move_rate <- .4 * n
+
+out <- expand.grid(from = 1:n, to =1:n) %>% 
+  as.data.frame()
+
+move <- out %>% 
+  mutate(distance = map2_dbl(from,to, ~ min(c(abs(.x - .y),
+                                              .x + n - .y,
+                                              n - .x + .y)), n = n)) 
+
+move <- move %>% 
+  mutate(movement = ifelse(is.finite(dnorm(distance,0,move_rate)),dnorm(distance,0,move_rate),1))  %>% 
+  group_by(from) %>% 
+  mutate(movement = movement / sum(movement))
+
+
+move %>% 
+  ggplot() + 
+  geom_raster(aes(from,to,fill = movement))
+  
+
+```
+
+
+What would source-sink dynamics look like? I don't really want to deal with advection, since doesn't really mean much in a doughnut system, though I suppose you could make the distribution skewed? But really what's the added value of that, beside making one place a souce instead of spreading it out all over. seems like the lowest hanging fruit is the idea that MPAs provide disproportionate amounts of larvae to other areas.
+
+So one way to do that would be to increase the r0 inside the MPAs, so that protecting those places has a bigger effect on the population, or rather the reproductive capacity inside the MPAs makes up a bigger chunk of the total reproductive potential. 
+
+So maybe call that the habitat MPA hypothesis. 
+
+The other one is a current hypothesis, where something about the oceanography spreads things out a lot more. So, to do that in the most simple manner you can basically just increase the larval movement rate for patches inside the MPAs themselves
+
+lastly, can build in chunky MPAs using rmvtnorm right?
+
+let's mess with that idea a bit
+
+
+```{r}
+
+patches <- 20
+
+mpas <- 10
+
+clustering <- 1
+
+min_size <- min(mpas,clustering)
+
+cwidth <- patches / min_size
+
+out <- tibble(patch = 1:patches) %>% 
+  mutate(cluster = cut(patch,cwidth))
+
+test <- sampling::cluster(out, cluster = "cluster",ceiling(mpas/min_size), method = "srswor")
+
+a <- getdata(out,test) %>% 
+  sample_n(mpas)
+
+plot(1:patches, (1:patches) %in% a$patch)
+
+```
+
+
+
+# updating larval dispersal
+
+
+ok, good catch in here. larval movement is really only coming into place in the dd5 case, which doesn't really seem right to me. In general, seems like the case of larvae not moving at all isn't particularly realistic, and so shouldn't get a whole ton of play, or rather should be controlled by the larval dispersal parameter itself. 
+
+
+So, if you got rid of the movement controlled by the SR relationship itself, that would leave 
+
+1. DD occurs locally, then recruits move
+  - saturated spawning sites? 
+
+2. DD occurs regionally, then recruits move
+  - water column competition / predation
+
+3. Movement, then DD occurs locally
+  - settlement saturation
+
+
+# WHAT DO DO about open access
+
+you need to figure out a lasting solution to this. The basic problem: really really hard to automate the open access model so it gets to where you want it to go and doesn't go crazy along the way. 
+
+A few solutions
+
+1. Tune the nuisance parameters, like r0, 1, beta, etc. and find a combination of those that seems to work pretty well, and just lock that in. 
+
+2. Go with the current approach of tuning both the cost to revenue ratio and the expansion parameter. The downside here is the model tends to solve this problem by just making a staright line, i.e. dampening the expansion parameter enough to ensure you get the outcome you want. Works, but doesnt' really capture the "open-accses" idea, in that it responds to profits so slowly that especially over the short term it isn't really that interesting. 
+
+3. drop open access - not really into that
+
+4. think about some kind of dampening function, I would think the running mean would do that, but maybe try out longer lags, and not using a weighted mean
+
+
+5. do some paper digging for better open access models, though I kind of doubt it. 
+
+
+6. try starting at a higher initial effort. 
+
+OK, seems like just messing with the parameters settles things down pretty well. 
+
+this config works. Getting rid of the smoothed profits, keeping beta at 1, and not capping the max expansion too much seem to do the trick pretty well. setting max expansion at about 2 helps, and seems to let you overfish and underfish. 
+
+next step is to test with tuning.
+
+```{r}
+library(tidyverse)
+library(FishLife)
+library(spasm)
+library(ggridges)
+library(sampling)
+library(gganimate)
+
+fish <-
+  create_fish(
+    scientific_name = "Atractoscion nobilis",
+    query_fishlife = T,
+    mat_mode = "length",
+    time_step = 1,
+    sigma_r = 0,
+    price = 10,
+    price_cv = 0,
+    price_ac = 0,
+    price_slope = 0,
+    steepness = 0.9,
+    r0 = 100,
+    rec_ac = 0,
+    density_movement_modifier = 0,
+    adult_movement = 3,
+    larval_movement = 3,
+    density_dependence_form = 3
+  )
+
+
+
+
+fleet <- create_fleet(
+  fish = fish,
+  cost_cv =  0,
+  cost_ac = 0,
+  cost_slope = 0,
+  q_cv = 0,
+  q_ac = .7,
+  q_slope = 0,
+  fleet_model = "open-access",
+  target_catch = 200,
+  sigma_effort = 0,
+  length_50_sel = 0.1 * fish$linf,
+  initial_effort = 1000,
+  profit_lags =  1,
+  beta = 1,
+  max_cr_ratio = 0.8,
+  max_perc_change_f = 2,
+  effort_allocation = 'profit-gravity',
+  b_ref_oa = .9
+)
+
+
+# huh <- map_dbl(seq(0.01,0.7, by = 0.025), estimate_costs, fish = fish,
+#                fleet = fleet,
+#                b_ref_oa = pmax(.05,(2 - f_v_m) / 2),
+#                lags = 10,
+#                num_patches = 50,
+#                sim_years = 50,
+#                burn_years = 1
+# )
+
+
+a <- Sys.time()
+sim_noad <- spasm::sim_fishery(
+  fish = fish,
+  fleet = fleet,
+  manager = create_manager(mpa_size = 0, year_mpa = 30),
+  num_patches = 50,
+  sim_years = 50,
+  burn_years = 1,
+  time_step = fish$time_step,
+  est_msy = FALSE,
+  random_mpas = TRUE,
+  min_size = 0.05,
+  mpa_habfactor = 1,
+  sprinkler = FALSE,
+  keep_burn = FALSE,
+  tune_costs = FALSE
+)
+Sys.time() - a
+plot_spasm(sim_noad)
+```
+
+
+ok, now test tuning
+
+
+```{r}
+library(tidyverse)
+library(FishLife)
+library(spasm)
+library(ggridges)
+library(sampling)
+library(gganimate)
+
+fish <-
+  create_fish(
+    scientific_name = "Atractoscion nobilis",
+    query_fishlife = T,
+    mat_mode = "length",
+    time_step = 1,
+    sigma_r = 0,
+    price = 10,
+    price_cv = 0,
+    price_ac = 0,
+    price_slope = 0,
+    steepness = 0.9,
+    r0 = 100,
+    rec_ac = 0,
+    density_movement_modifier = 0,
+    adult_movement = 5,
+    larval_movement = 3,
+    density_dependence_form = 3
+  )
+
+
+f_v_m <- 0.2
+
+fleet <- create_fleet(
+  fish = fish,
+  cost_cv =  0,
+  cost_ac = 0,
+  cost_slope = 0,
+  q_cv = 0,
+  q_ac = .7,
+  q_slope = 0,
+  fleet_model = "open-access",
+  target_catch = 200,
+  sigma_effort = 0,
+  length_50_sel = 0.2 * fish$length_50_mature,
+  initial_effort = 1000,
+  profit_lags =  1,
+  beta = 1,
+  max_cr_ratio = 0.8,
+  max_perc_change_f = 2,
+  effort_allocation = 'simple',
+  b_ref_oa = pmax(.05,(2 - f_v_m) / 2)
+)
+
+
+# huh <- map_dbl(seq(0.01,0.7, by = 0.025), estimate_costs, fish = fish,
+#                fleet = fleet,
+#                b_ref_oa = pmax(.05,(2 - f_v_m) / 2),
+#                lags = 10,
+#                num_patches = 50,
+#                sim_years = 50,
+#                burn_years = 1
+# )
+
+
+a <- Sys.time()
+sim_noad <- spasm::sim_fishery(
+  fish = fish,
+  fleet = fleet,
+  manager = create_manager(mpa_size = 0.4, year_mpa = 30),
+  num_patches = 50,
+  sim_years = 50,
+  burn_years = 50,
+  time_step = fish$time_step,
+  est_msy = FALSE,
+  random_mpas = TRUE,
+  min_size = 0.05,
+  mpa_habfactor = 4,
+  sprinkler = TRUE,
+  keep_burn = FALSE,
+  tune_costs = TRUE
+)
+Sys.time() - a
+plot_spasm(sim_noad)
+```
+
+
+
+
