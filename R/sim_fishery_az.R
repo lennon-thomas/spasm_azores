@@ -32,7 +32,6 @@ sim_fishery_az<-
            rec_driver,
            est_msy,
            time_step,
-           max_window = 10,
            min_size = 1,
            mpa_habfactor = 1,
            sprinkler=FALSE,
@@ -54,7 +53,6 @@ sim_fishery_az<-
    sim_years = 20
    burn_years = 1
    time_step = fish$time_step
-   #est_msy = FALSE,
    random_mpas =TRUE
    min_size = 0.05
    mpa_habfactor = 1
@@ -67,10 +65,11 @@ sim_fishery_az<-
    shore_dist = shore_dist
    rec_driver = "stochastic"
    estimate_costs = TRUE
+   beta =1
  #  tune_costs = FALSE
    hab_qual = hab_qual
- fuel_eff = 0.68 # km/L back of envelope calculation
- fuel_price = 1.4 # euro/L price of fuel (found of top internet search)
+ #fuel_eff = 0.68 # km/L back of envelope calculation
+ #fuel_price = 1.4 # euro/L price of fuel (found of top internet search)
 #  perc_op_cost = 0.5
 
 
@@ -314,7 +313,7 @@ distance_to_shore$distance[distance_to_shore$distance==0]<-20
          expand.grid(year = 1:sim_years, patch = 1:num_patches) %>%
          dplyr::as_data_frame() %>%
          dplyr::left_join(cost_frame, by = "year") %>%
-         dplyr::left_join(distance_to_shore, by = "patch") %>%
+         dplyr::left_join(distance_to_shore, by = "patch")
 
 
 
@@ -529,29 +528,33 @@ distance_to_shore$distance[distance_to_shore$distance==0]<-20
 
 
          # This is where total effort is calculated. 'determine effort' was a different previous function used here before
-         effort <- determine_effort_az(
+         effort [y] <- determine_effort_az(
            fleet = fleet,
            fish = fish,
            pops = pop[pop$year == y,],
            boxdir = boxdir
-         )
+        )
         }
 
-}
+     }
+     
+   opt_dev_profit<-optimize(find_L_az, interval = c(10000.00000,100000.00000))$minimum
+    
       pop[now_year, "effort"] <-
         distribute_fleet_az(
+          dev_profit = opt_dev_profit,
           pops = pop %>% filter(year == y),
           year = y,
           fish = fish,
           burn_years = burn_years,
-          effort = effort[y],
+          total_effort = effort[y],
           fleet = fleet,
           num_patches = num_patches,
-          mpa = mpa
+          mpa
         )
 
       pop[now_year, "f"] <-
-        pop[now_year, "effort"] * q[y]
+        pop[now_year, "effort"] * fleet$q
 
 
 # Growth and Mortality ----------------------------------------------------

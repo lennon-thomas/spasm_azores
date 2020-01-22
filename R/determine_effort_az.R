@@ -27,36 +27,26 @@ determine_effort_az <-
            boxdir) {
 
 data<-read.csv(paste0(boxdir,"jabba_b_and_f.csv")) %>%
-  mutate(q=0.00014) %>%
-  mutate(d_effort = catch/(q*B))
+  mutate(q=fleet$q) %>%
+  mutate(d_effort = f/q)
 
-biomass<-sum(pops$biomass,na.rm = TRUE)
+biomass<-sum(pops$ssb,na.rm = TRUE)
 
-ggplot(data,aes(y=effort,x=B)) +
+ggplot(data,aes(y=d_effort,x=B)) +
   geom_point() +
   geom_smooth(method='lm',fullrange=TRUE) +
   theme_bw() +
-  #xlim(c(0,12000)) +
-  #ylim(c(0,26)) +
   theme(axis.title=element_text(size=16)) +
   ylab("effort")
 
-# geom_point(x=12976,y=24.28,col="red",size=3)
 
-#ggplot(data,aes(y=biomass,x=year)) +
- # geom_line() +
-#  geom_line(data=data,aes(y=TAC),col="red",show.legend = TRUE) +
-  #ylim(c(0,7000)) +
- # xlim(c(,2015)) +
-  #theme_bw() +
-  #theme(axis.title=element_text(size=16))
 
-lm_f<-lm(data$effort~data$B)
-intercept<-lm_f$coefficients[[1]]
-slope<-lm_f$coefficients[[2]]
+lm_effort<-lm(data$f~data$B)
+intercept<-lm_effort$coefficients[[1]]
+slope<-lm_effort$coefficients[[2]]
 #y=a+bX
 
 new_effort<-intercept + slope * biomass
-#new_effort<-new_effort * fleet$q
+new_effort<-new_effort / fleet$q
 return(new_effort)
 }

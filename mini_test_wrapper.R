@@ -61,7 +61,7 @@ fish <-
     larval_movement = 2000,
     density_dependence_form = 2,
     density_movement_modifier =  0.5,
-    price = 9400,
+    price = 14.5*1000, # biomass is in units of metric tons
     price_cv = 0,
     price_ac = 0,
     price_slope =  0.0001
@@ -72,12 +72,14 @@ fish <-
 
 fleet <- create_fleet(
   fish = fish,
-  q = 1e-6, # Get this from JABBA output
-  cost = 1,
+  q = 0.00014, # Get this from JABBA output
+  cost_intercept =  440.6,
   #cost_factor = 1, #How many X bigger are capital costs relative to cost of fuel (i.e. how much is distance from shore going to matter)
   # distance_factor<-5, # This should be how much it costs to go each km (~fuel cost/km)   cost_cv =  0,
   #cost_ac = 0,
-  #cost_slope = 0.01, #This has to be >0 in order for distance from shore to be considered cost but increases costs significantly
+  cost_slope = 0.01, 
+  beta = 1.3,
+  #This has to be >0 in order for distance from shore to be considered cost but increases costs significantly
   #q_cv = 0.01,
   #q_ac = 0,
   #q_slope = 0,
@@ -88,7 +90,7 @@ fleet <- create_fleet(
  # sigma_effort = 0.0,
   length_50_sel = 0.1 * fish$linf,
   initial_effort = 0.2, # This is something we can take out depending on which equations we are using
-  beta = 1.3,
+
 #  theta = 1e-1,
   max_perc_change_f = 2,
   effort_allocation = "simple", #"gravity", #'simple',
