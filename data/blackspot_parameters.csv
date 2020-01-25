@@ -1,0 +1,30 @@
+parameter,value,units,source
+linf ,56.72,cm,ICES Report 2017 Table 13.4.4
+vbk,0.13,year-1,ICES Report 2017 Table 13.4.4
+t0,-1.46,year-1,ICES Report 2017 Table 13.4.4
+cv_len,,,
+min_age,1,year,ICES Report 2017 p 585
+max_age,15,year,ICES Report 2017 p 585
+time_step,,,
+weigth_a,0.0172,NA,ICES Report 2017 Table 13.4.4
+weight_b,3.0273,NA,ICES Report 2017 Table 13.4.4
+length_50_mature,30,cm,ICES Report 2017 p 587
+length_95_mature,,,
+length_50_selected,30,cm,"ICES Report 2017 Table 13.4.4, average Sousa et al 1999"
+length_95_selected,33.5,cm,Estimated from Sousa et al 1999 Fig 4
+m,0.2,percentage,ICES Report 2017 Table 13.4.4
+steepness,0.8,NA,Thorson Fish Life 2.0 estimate
+r0,.,,Calculated in the model
+adult_movement,242,km per year,Estimated from Gueguen 1974 Fig 2
+larval_movement,.,km per year,Calculated in the model
+query_fishlife,,,
+price,,,
+price_cv,,,
+price_ac,,,
+price_slope,,,
+sigma_r,,,
+rec_ac,,,
+cores,,,
+,,,
+,,,
+,,,
