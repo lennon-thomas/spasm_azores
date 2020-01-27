@@ -1,6 +1,51 @@
+#default function variable values
+common_name <- 'white seabass'
+scientific_name <- "Atractoscion nobilis"
+linf <- NA
+vbk <- NA
+t0 <- -0.1 #differs from imported value. Would have to explicitly list it as NA in function call to get overwritten
+cv_len <- 0.1
+length_units <- 'cm'
+min_age <- 0 #same as above
+max_age <- NA
+time_step <- 1
+weight_a <- NA
+weight_b <- NA
+weight_units <- 'kg'
+length_50_mature <- NA
+length_95_mature <- NA
+delta_mature <- .1
+age_50_mature <- NA
+age_95_mature <- NA
+age_mature <- NA
+length_mature <- NA
+m <- NA
+steepness <- 0.8 #same as above
+r0 <- 10000
+density_dependence_form <- 1
+adult_movement <- 2 #same as above
+larval_movement <- 2
+query_fishlife <- T
+price <- 1
+price_cv <- 0
+price_ac <- 0
+price_slope <- 0
+sigma_r <- 0
+rec_ac <- 0
+cores <- 4
+mat_mode <- "age"
+default_wb <- 2.8
+tune_weight <- FALSE
+density_movement_modifier <- 1
+linf_buffer <- 1.2
+import_life_hist_params <- FALSE
+life_hist_params_path <- NA
+
+
+
 #parameters used while developing function (to be erased upon completion of function)
 scientific_name <- "Pagellus bogaraveo"
-query_fishlife <- F
+query_fishlife <- T
 mat_mode <- "length"
 time_step <- 1
 cv_len <- 0
@@ -73,10 +118,10 @@ create_fish_az <- function(common_name = 'white seabass',
                            scientific_name = "Atractoscion nobilis",
                            linf = NA,
                            vbk = NA,
-                           t0 = -0.1,
+                           t0 = -0.1, #differs from imported value. Would have to explicitly list it as NA in function call to get overwritten
                            cv_len = 0.1,
                            length_units = 'cm',
-                           min_age = 0,
+                           min_age = 0, #same as above
                            max_age = NA,
                            time_step = 1,
                            weight_a = NA,
@@ -90,10 +135,10 @@ create_fish_az <- function(common_name = 'white seabass',
                            age_mature = NA,
                            length_mature = NA,
                            m = NA,
-                           steepness = 0.8,
+                           steepness = 0.8, #same as above
                            r0 = 10000,
                            density_dependence_form = 1,
-                           adult_movement = 2,
+                           adult_movement = 2, #same as above
                            larval_movement = 2,
                            query_fishlife = T,
                            price = 1,
@@ -119,11 +164,52 @@ create_fish_az <- function(common_name = 'white seabass',
   # check to see if user wants to import life hitory paramters from a local file --------------------
   
   if(import_life_hist_params == T & !is.na(life_hist_params_path)){
-    life_hist_params <- read_csv(life_hist_params_path)
-  }
-  
-  # check fishbase -------------
-  if (is.na(scientific_name) == F & query_fishlife == T) {
+    life_hist_params <- read_csv(life_hist_params_path) %>% 
+      dplyr::select(parameter, value) %>% 
+      mutate(value = as.numeric(value)) %>% 
+      filter(!is.na(value)) %>% 
+      pivot_wider(names_from = parameter, values_from = value)
+    
+    #Assign imported values to funciton variables. Defaults to only overriding a variable defined in the function call with an imported value if the function varible is NA. This mimics the behaviour precedent of querying FishLife that is implemented below.
+    
+    if(is.na(linf)){
+      linf <- life_hist_params$linf
+    }
+    if(is.na(vbk)){
+      vbk <- life_hist_params$vbk
+    }
+    if(is.na(t0)){
+      t0 <- life_hist_params$t0
+    }
+    if(is.na(min_age)){
+      min_age <- life_hist_params$min_age
+    }
+    if(is.na(max_age)){
+      max_age <- life_hist_params$max_age
+    }
+    if(is.na(weight_a)){
+      weight_a <- life_hist_params$weight_a
+    }
+    if(is.na(weight_b)){
+      weight_b <- life_hist_params$weight_b
+    }
+    if(is.na(length_50_mature)){
+      length_50_mature <- life_hist_params$length_50_mature
+    }
+    
+    #what to do with length_"selected" variables?
+    
+    if(is.na(m)){
+      m <- life_hist_params$m
+    }
+    if(is.na(steepness)){
+      steepness <- life_hist_params$steepness
+    }
+    if(is.na(adult_movement)){
+      adult_movement <- life_hist_params$adult_movement
+    }
+      }  # check fishbase -------------
+  else if (is.na(scientific_name) == F & query_fishlife == T) {
     
     
     genus_species <- stringr::str_split(scientific_name, " ", simplify = T) %>%
@@ -134,7 +220,6 @@ create_fish_az <- function(common_name = 'white seabass',
       dplyr::mutate(life_traits = pmap(list(Genus = genus, Species = species), safely(Get_traits_az)))
     
     fish_life <- fish_life %>%
-      
       dplyr::mutate(fish_life_worked = purrr::map(life_traits, 'error') %>% map_lgl(is.null)) %>%
       dplyr::filter(fish_life_worked) %>%
       dplyr::mutate(life_traits = purrr::map(life_traits, 'result')) %>%
@@ -244,6 +329,8 @@ create_fish_az <- function(common_name = 'white seabass',
   #   weight_b <-lhi_groups$mean_wb[lhi_groups$type == lhi_type]
   #
   # }
+  
+  #calculations begin regardless of Fish Life, user entry, or import
   
   length_at_age <- linf * (1 - exp(-vbk * (seq(min_age,max_age, by = time_step) - t0)))
   
