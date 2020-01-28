@@ -17,6 +17,7 @@ source('~/GitHub/spasm_azores/R/estimate-costs_az.R')
 source('~/GitHub/spasm_azores/R/create_fleet_az.R')
 source('~/GitHub/spasm_azores/R/move_fish_az.R')
 boxdir<-"/Users/lennonrosethomas/Box Sync/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
+#boxdir <- "C:/Users/iladner/Box/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
 runname<-"test"
 
 
@@ -66,6 +67,58 @@ fish <-
     price_ac = 0,
     price_slope =  0.0001
   )
+
+
+#Code chunk demonstrating use of funciton: create_fish_az_from_import
+
+
+# #Using the import function to query FishLife, indentical behavior to `create_fish_az()`
+# fish <- create_fish_az_from_import(
+#   scientific_name = "Pagellus bogaraveo",
+#   query_fishlife = T,
+#   mat_mode = "length",
+#   time_step = 1,
+#   cv_len = 0,
+#   sigma_r = 0.00,
+#   steepness = 0.8,
+#   r0 = 10972.933, #This should correspond to give us the K from best Jabba run during burn years. Still need to create function to solve for this.
+#   rec_ac = 0,
+#   adult_movement = 20,
+#   larval_movement = 2000,
+#   density_dependence_form = 2,
+#   density_movement_modifier =  0.5,
+#   price = 14.5*1000, # biomass is in units of metric tons
+#   price_cv = 0,
+#   price_ac = 0,
+#   price_slope =  0.0001,
+#   import_life_hist_params = F
+#   )
+# 
+# #Example of using import function to import life history parameters from local file. Note comments on several variables.
+# fish <- create_fish_az_from_import(
+#   scientific_name = "Pagellus bogaraveo",
+#   query_fishlife = F, #set query_fishlife equal to false
+#   mat_mode = "length",
+#   time_step = 1,
+#   cv_len = 0,
+#   sigma_r = 0.00,
+#   r0 = 10972.933, #This should correspond to give us the K from best Jabba run during burn years. Still need to create function to solve for this.
+#   rec_ac = 0,
+#   larval_movement = 2000,
+#   density_dependence_form = 2,
+#   density_movement_modifier =  0.5,
+#   price = 14.5*1000, # biomass is in units of metric tons
+#   price_cv = 0,
+#   price_ac = 0,
+#   price_slope =  0.0001,
+#   import_life_hist_params = T, #set import boolean variable to true
+#   life_hist_params_path = "data/blackspot_parameters.csv", #specify location of data file to import
+#   #The create_fish_az_from_import function will NOT overwrite variable values defined explicitly in the function with import values by default. Therefore, we must assign the overlapping variables to "NA" to allow for the import values to be used. Example:
+#   t0 = NA,
+#   min_age = NA,
+#   steepness = NA,
+#   adult_movement = NA
+# )
 
 
 # Define fleet ------------------------------------------------------------
