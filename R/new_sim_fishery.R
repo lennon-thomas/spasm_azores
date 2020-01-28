@@ -526,7 +526,7 @@ distance_to_shore$distance[distance_to_shore$distance==0]<-20
 
 
          # This is where total effort is calculated. 'determine effort' was a different previous function used here before
-         effort[y] <- determine_effort2(
+         effort[y] <- determine_effort_az(
            fleet = fleet,
            fish = fish,
            pops = pop[pop$year == y,],
@@ -534,8 +534,12 @@ distance_to_shore$distance[distance_to_shore$distance==0]<-20
          )
         }
 
-}
-      pop[now_year, "effort"] <-
+     }
+     
+     dev_pro<-optimize(find_L, interval = c(10000.00000,100000.00000),)
+      
+     
+     pop[now_year, "effort"] <-
         distribute_fleet2(
           pops = pop %>% filter(year == y),
           year = y,

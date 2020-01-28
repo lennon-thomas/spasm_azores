@@ -14,7 +14,7 @@
 
 distribute_fleet_az<-
   function(
-    dev_profit,
+    dev_profit = opt_dev_profit,
     pops = pop %>% filter(year == y),
     cell_lookup = cell_lookup,
     year = y,
@@ -26,9 +26,9 @@ distribute_fleet_az<-
     mpa = mpa,
     beta = fleet$beta,
     cost_slope = fleet$cost_slope,
-    cost_intercept = 853.3343,
+    cost_intercept = fleet$cost_intercept,
     price = fish$price,
-    q = fleet$q
+    q = fleet$q[1]
   )
   {
     

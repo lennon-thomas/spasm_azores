@@ -70,10 +70,10 @@ fish <-
 
 # Define fleet ------------------------------------------------------------
 
-fleet <- create_fleet(
+fleet <- create_fleet_az(
   fish = fish,
   q = 0.00014, # Get this from JABBA output
-  cost_intercept =  440.6,
+  cost_intercept =  853.3343,#440.6,
   #cost_factor = 1, #How many X bigger are capital costs relative to cost of fuel (i.e. how much is distance from shore going to matter)
   # distance_factor<-5, # This should be how much it costs to go each km (~fuel cost/km)   cost_cv =  0,
   #cost_ac = 0,
@@ -101,7 +101,7 @@ fleet <- create_fleet(
 
 # Simulate Fishery (not working yet bc of distribute fleet function- just working on inside the function for now) -------------------------------------------------------
 
-system.time(simple <- new_sim_fishery(
+system.time(simple <- sim_fishery_az(
   fish = fish,
   fleet = fleet,
   manager = create_manager(mpa_size = 0, year_mpa = 100),
@@ -122,7 +122,9 @@ system.time(simple <- new_sim_fishery(
   shore_dist = shore_dist,
   hab_qual = hab_qual,
   rec_driver = "stochastic",
-  estimate_costs = TRUE #constant annual value of effort to be distributed to all patches
+  estimate_costs = FALSE ,
+  constant_L = TRUE,
+  L =0.1#constant annual value of effort to be distributed to all patches
 ))
 
 

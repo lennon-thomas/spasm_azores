@@ -44,7 +44,9 @@ sim_fishery_az<-
            shore_dist,
            hab_qual,
            effort_c,
-           estimate_costs) {
+           estimate_costs,
+           constant_L,
+           L) {
 # # #
    fish = fish
    fleet = fleet
@@ -236,7 +238,7 @@ sim_fishery_az<-
       price_series <- rep(price_series, sim_years)
     }
 
-
+# This is where costs should be added
 
     cost_series <-
       generate_timeseries(
@@ -307,7 +309,7 @@ sim_fishery_az<-
        mutate(patch = seq(1:num_patches))
 
      colnames(distance_to_shore) <- c("cell_no", "distance", "patch")
-distance_to_shore$distance[distance_to_shore$distance==0]<-20
+     distance_to_shore$distance[distance_to_shore$distance==0]<-20
 
      cost_frame <-
          expand.grid(year = 1:sim_years, patch = 1:num_patches) %>%
@@ -328,7 +330,7 @@ distance_to_shore$distance[distance_to_shore$distance==0]<-20
 # Calculate biomass and ssb for each age class ----------------------------
 
      pop <- pop %>%
-       dplyr::left_join(
+      dplyr::left_join(
          dplyr::data_frame(
            age = seq(fish$min_age, fish$max_age, fish$time_step),
            ssb_at_age = fish$ssb_at_age,
@@ -341,7 +343,10 @@ distance_to_shore$distance[distance_to_shore$distance==0]<-20
 
      model_phase <- "burn"
 
-
+     pop<-pop %>%
+       mutate( ssb = numbers * ssb_at_age,
+               biomass = numbers * weight_at_age)
+     
  # Calculate Movement ------------------------------------------------------
 
 # This is movement without density. See 'movement' script for distance calc of  _distance files
@@ -437,15 +442,19 @@ distance_to_shore$distance[distance_to_shore$distance==0]<-20
 
          adult_move_grid[adult_move_grid$from %in% juve_cell_no |
                            adult_juve_move_grid$to %in% juve_cell_no, "prob_move"] <- 0
-
+         #number of mature age classes
+         mat_age_class<-length(unique(pop$age[pop$age>fish$age_mature]))
+         
          adult_move_matrix <- adult_move_grid %>%
            ungroup() %>%
            dplyr::select(from, to, prob_move) %>%
            spread(to, prob_move) %>%
            dplyr::select(-from) %>%
            as.matrix()
-
-         juve_adult_move_grid <- juve_adult_distance %>%
+        # Repeat each row (probabiliyt of movement per cell for each age class)
+         adult_move_matrix<-   do.call("rbind", replicate(mat_age_class, adult_move_matrix, simplify = FALSE))
+        
+          juve_adult_move_grid <- juve_adult_distance %>%
            left_join(how_crowded, by = c("from" = "cell_no")) %>%
            dplyr::mutate (movement = ifelse(is.na(dist), NA, ifelse(
              is.finite(dnorm(dist, 0, move_rate)),
@@ -471,12 +480,12 @@ distance_to_shore$distance[distance_to_shore$distance==0]<-20
 
 
        total_no <-
-         sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select((numbers)))
+         sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(numbers))
 
-       total_bio<- sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select((biomass)))
-       total_ssb<- sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select((ssb)))
+       total_bio<- sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(biomass))
+       total_ssb<- sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(ssb))
 
-       ## Adult movement is no longer working during sim years as of Jan. 9 (?)
+       ## Move age at maturity from juvenile to adult habitat
 
        pop[now_year &
              pop$age == (fish$age_mature), ] <- pop[now_year &
@@ -491,9 +500,10 @@ distance_to_shore$distance[distance_to_shore$distance==0]<-20
        adult_move_matrix[is.na(adult_move_matrix)] <- 0
        pop$numbers[is.na(pop$numbers)] <- 0
 
+  # adult movement not working 
        pop[now_year &
-             pop$age > (round(fish$age_mature, 0)),] <-
-         move_fish(
+             pop$age > (fish$age_mature),] <-
+         move_fish_az(
            here_pop = pop %>% filter(year == y, age > fish$age_mature),
            fish = fish,
            num_patches = num_patches,
@@ -526,7 +536,7 @@ distance_to_shore$distance[distance_to_shore$distance==0]<-20
           # This is K calculated from burn years (no fishing)
         b0 <- sum(pop$biomass[pop$year == burn_years])
 
-
+if (constant_L == FALSE){
          # This is where total effort is calculated. 'determine effort' was a different previous function used here before
          effort [y] <- determine_effort_az(
            fleet = fleet,
@@ -534,11 +544,25 @@ distance_to_shore$distance[distance_to_shore$distance==0]<-20
            pops = pop[pop$year == y,],
            boxdir = boxdir
         )
-        }
+        
 
-     }
      
-   opt_dev_profit<-optimize(find_L_az, interval = c(10000.00000,100000.00000))$minimum
+# Find optimal profit derivative (p as a function of E for this timestep) Should be 19007.2     
+   opt_dev_profit<-optimize(find_L_az, interval = c(10000.00000,100000.00000), maximum = FALSE,
+                            pops = pop %>% filter(year == y),
+                            cell_lookup = cell_lookup,
+                            year = y,
+                            fish = fish,
+                            burn_years = burn_years,
+                            total_effort = effort[y],
+                            fleet = fleet,
+                            num_patches = num_patches,
+                            
+                            beta = fleet$beta,
+                            cost_slope = fleet$cost_slope,
+                            cost_intercept = fleet$cost_intercept, #853.3343
+                            price = fish$price,
+                            q = fleet$q[1])$minimum
     
       pop[now_year, "effort"] <-
         distribute_fleet_az(
@@ -549,14 +573,30 @@ distance_to_shore$distance[distance_to_shore$distance==0]<-20
           burn_years = burn_years,
           total_effort = effort[y],
           fleet = fleet,
+          cost_slope = fleet$cost_slope,
+          cost_intercept = fleet$cost_intercept,
           num_patches = num_patches,
           mpa
         )
+}
+ 
+  if (constant_L == TRUE) {      
+    pop[now_year, "effort"] <-
+      determine_and_distribute_effort_az( L= L,
+                                          pops = pop %>% filter(year == y),
+                                          fish = fish,
+                                          fleet = fleet,
+                                          price = fish$price,
+                                          cost_slope = fleet$cost_slope,
+                                          cost_intercept = fleet$cost_intercept,
+                                          num_patches = num_patches,
+                                          beta = fleet$beta)
 
-      pop[now_year, "f"] <-
-        pop[now_year, "effort"] * fleet$q
+  }       
+        pop[now_year, "f"] <-
+        pop[now_year, "effort"] * fleet$q[y]
 
-
+}
 # Growth and Mortality ----------------------------------------------------
       pop$numbers[is.na(pop$numbers)]<-0
       pop$f[is.na(pop$f)]<-0
@@ -642,7 +682,7 @@ distance_to_shore$distance[distance_to_shore$distance==0]<-20
 # End of one year ---------------------------------------------------------
 
 
-  #  }
+    }
     rec_mat <-
       dplyr::data_frame(year = 1:sim_years, rec_dev = rec_devs) # Data fraom of recruitment deviates
 

@@ -1,19 +1,19 @@
 find_L_az<-
-  function(dev_profit) {
-           pops = pop %>% filter(year == y)
-           cell_lookup = cell_lookup
-           year = y
-           fish = fish
-           burn_years = burn_years
-           total_effort = effort[y]
-           fleet = fleet
-           num_patches = num_patches
-
-           beta = fleet$beta
-           cost_slope = fleet$cost_slope
-           cost_intercept = 853.3343
-           price = fish$price
-           q = fleet$q
+  function(dev_profit,
+           pops = pop %>% filter(year == y),
+           cell_lookup = cell_lookup,
+           year = y,
+           fish = fish,
+           burn_years = burn_years,
+           total_effort = effort[y],
+           fleet = fleet,
+           num_patches = num_patches,
+           beta = fleet$beta,
+           cost_slope = fleet$cost_slope,
+           cost_intercept = fleet$cost_intercept, #853.3343
+           price = fish$price,
+           q = fleet$q[1]) 
+         {
   
     
  
