@@ -39,39 +39,18 @@
 #' }
 create_fleet_az <- function(eq_f = NA,
                          length_50_sel = 1,
-                         delta = 2,
                          fish,
                          mpa_reaction = 'concentrate',
-                         cost = .1,
-                         beta = 1,
-                         max_perc_change_f = 2,
-                         max_cr_ratio = 0.75,
+                         beta = 1.3,
                          b_ref_oa = 0.25,
                          q = 1e-3,
-                         q_cv = 0,
-                         q_ac = 0,
-                         q_slope = 0,
-                         cost_factor=1,
-                         distance_factor=5,
-                         cost_cv = 0,
-                         cost_ac = 0,
                          cost_slope = 0,
                          cost_intercept = 440.6,
                          fleet_model = 'constant-effort',
                          effort_allocation = 'gravity',
                          cost_function = 'constant',
-                         tech_rate = 0,
-                         initial_effort = 100,
-                         target_catch = 0,
-                         catches = NA,
-                         sigma_effort = 0,
-                         profit_lags = 1,
-                         mey_buffer = 2,
-                         effort_ac = 0,
-                         fuel_eff, # km/L back of envelope calculation
-                         fuel_price, # euro/L price of fuel (found of top internet search)
-                         perc_op_cost = 0.5, # percent of fishing costs that are operating (ie fuel) this will affect variability in patch costs based on distance
-                         fixed_cost) {
+                         profit_lags = 1
+                         ) {
 
 
   length_bins <- as.numeric(colnames(fish$length_at_age_key))
