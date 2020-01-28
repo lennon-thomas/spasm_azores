@@ -1,71 +1,3 @@
-#default function variable values
-common_name <- 'white seabass'
-scientific_name <- "Atractoscion nobilis"
-linf <- NA
-vbk <- NA
-t0 <- -0.1 #differs from imported value. Would have to explicitly list it as NA in function call to get overwritten
-cv_len <- 0.1
-length_units <- 'cm'
-min_age <- 0 #same as above
-max_age <- NA
-time_step <- 1
-weight_a <- NA
-weight_b <- NA
-weight_units <- 'kg'
-length_50_mature <- NA
-length_95_mature <- NA
-delta_mature <- .1
-age_50_mature <- NA
-age_95_mature <- NA
-age_mature <- NA
-length_mature <- NA
-m <- NA
-steepness <- 0.8 #same as above
-r0 <- 10000
-density_dependence_form <- 1
-adult_movement <- 2 #same as above
-larval_movement <- 2
-query_fishlife <- T
-price <- 1
-price_cv <- 0
-price_ac <- 0
-price_slope <- 0
-sigma_r <- 0
-rec_ac <- 0
-cores <- 4
-mat_mode <- "age"
-default_wb <- 2.8
-tune_weight <- FALSE
-density_movement_modifier <- 1
-linf_buffer <- 1.2
-import_life_hist_params <- FALSE
-life_hist_params_path <- NA
-
-
-
-#parameters used while developing function (to be erased upon completion of function)
-scientific_name <- "Pagellus bogaraveo"
-query_fishlife <- T
-mat_mode <- "length"
-time_step <- 1
-cv_len <- 0
-sigma_r <- 0.00
-steepness <- 0.8
-r0 <- 10972.933 #This should correspond to give us the K from best Jabba run during burn years. Still need to create function to solve for this.
-rec_ac <- 0
-adult_movement <- 20
-larval_movement <- 2000
-density_dependence_form <- 2
-density_movement_modifier <-  0.5
-price <- 14.5*1000 # biomass is in units of metric tons
-price_cv <- 0
-price_ac <- 0
-price_slope <-  0.0001
-life_hist_params_path <- "C:/Users/iladner/github/spasm_azores/data/blackspot_parameters.csv"
-import_life_hist_params <- TRUE
-
-
-
 #' create_fish
 #'
 #' creates a fish list object with all the life history goodies
@@ -114,7 +46,7 @@ import_life_hist_params <- TRUE
 #' \dontrun{
 #' white_seabass = create_fish(scientific_name = "Atractoscion nobilis", query_fishlife = T)
 #'}
-create_fish_az <- function(common_name = 'white seabass',
+create_fish_az_from_import <- function(common_name = 'white seabass',
                            scientific_name = "Atractoscion nobilis",
                            linf = NA,
                            vbk = NA,
@@ -208,9 +140,8 @@ create_fish_az <- function(common_name = 'white seabass',
     if(is.na(adult_movement)){
       adult_movement <- life_hist_params$adult_movement
     }
-      }  # check fishbase -------------
-  else if (is.na(scientific_name) == F & query_fishlife == T) {
-    
+      } else if (is.na(scientific_name) == F & query_fishlife == T) {
+    # check fishbase -------------
     
     genus_species <- stringr::str_split(scientific_name, " ", simplify = T) %>%
       as.data.frame() %>%
@@ -371,8 +302,12 @@ create_fish_az <- function(common_name = 'white seabass',
       )))))
     
   } else if (is.na(age_mature) | mat_mode == "length") {
-    if (is.na(length_mature)) {
-      length_mature <-  linf * lmat_to_linf_ratio
+    if (is.na(length_mature)){
+      if(import_life_hist_params){
+        length_mature <- length_50_mature
+      }else{
+        length_mature <-  linf * lmat_to_linf_ratio
+      }
     }
     
     length_bins <- as.numeric(colnames(length_at_age_key))
@@ -399,12 +334,12 @@ create_fish_az <- function(common_name = 'white seabass',
   if (is.na(length_50_mature)){
     
     length_50_mature <- length_mature
-    
+  }
+  if(is.na(length_95_mature)){
     length_95_mature <- length_50_mature + delta_mature
     
   }
-  
-  
+
   ssb_at_age <-  maturity_at_age * weight_at_age
   
   fish <- list(mget(ls()))
