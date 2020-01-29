@@ -160,9 +160,9 @@ fleet <- create_fleet_az(
 system.time(simple <- sim_fishery_az(
   fish = fish,
   fleet = fleet,
-  manager = create_manager(mpa_size = 0, year_mpa = 100),
+  manager = create_manager(mpa_size = 1, year_mpa = 20),
   num_patches = 20,
-  sim_years = 30,
+  sim_years = 40,
   burn_years = 1,
   time_step = fish$time_step,
   #est_msy = FALSE,
@@ -179,8 +179,8 @@ system.time(simple <- sim_fishery_az(
   hab_qual = hab_qual,
   rec_driver = "stochastic",
   estimate_costs = FALSE ,
-  constant_L = TRUE#constant annual value of effort to be distributed to all patches
-))
+  constant_L = TRUE))#constant annual value of effort to be distributed to all patches
+
 
 
 

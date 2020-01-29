@@ -572,7 +572,8 @@ if (constant_L == FALSE){
                                           cost_slope = fleet$cost_slope,
                                           cost_intercept = fleet$cost_intercept,
                                           num_patches = num_patches,
-                                          beta = fleet$beta)
+                                          beta = fleet$beta,
+                                          manager = manager)
 
   }       
         pop[now_year, "f"] <-

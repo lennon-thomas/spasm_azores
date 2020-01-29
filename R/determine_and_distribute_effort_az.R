@@ -8,7 +8,8 @@ determine_and_distribute_effort_az<- function (
   cost_slope = fleet$cost_slope,
   cost_intercept = fleet$cost_intercept,
   num_patches = num_patches,
-  beta = fleet$beta
+  beta = fleet$beta,
+  manager = manager
 ){
   
   fun <- function (x,b,c) (price*b*exp(-x))-(beta*c*x^beta-1)-L#(x^1.3)-(10*x)+10
@@ -27,5 +28,7 @@ determine_and_distribute_effort_az<- function (
   pops$effort<-epatch %>%
     rep(each = length(unique(pops$age)))
  
+  pops$effort[pops$mpa==TRUE]<-0
+  
   return(pops$effort) 
 }
