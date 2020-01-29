@@ -46,35 +46,36 @@ sim_fishery_az<-
            effort_c,
            estimate_costs,
            constant_L,
-           L) {
+           L,
+           cost_cv = 0) {
 # # #
-   fish = fish
-   fleet = fleet
-   manager = create_manager(mpa_size = 0, year_mpa = 100)
-   num_patches = 20
-   sim_years = 20
-   burn_years = 1
-   time_step = fish$time_step
-   random_mpas =TRUE
-   min_size = 0.05
-   mpa_habfactor = 1
-   sprinkler = TRUE
-   keep_burn = TRUE
-   adult_distance = adult_distance
-   juve_adult_distance = juve_adult_distance
-   adult_juve_distance = adult_juve_distance
-   juve_distance = juve_distance
-   shore_dist = shore_dist
-   rec_driver = "stochastic"
-   estimate_costs = TRUE
-   beta =1
- #  tune_costs = FALSE
-   hab_qual = hab_qual
- #fuel_eff = 0.68 # km/L back of envelope calculation
- #fuel_price = 1.4 # euro/L price of fuel (found of top internet search)
-#  perc_op_cost = 0.5
-
-
+#    fish = fish
+#    fleet = fleet
+#    manager = create_manager(mpa_size = 0, year_mpa = 100)
+#    num_patches = 20
+#    sim_years = 20
+#    burn_years = 1
+#    time_step = fish$time_step
+#    random_mpas =TRUE
+#    min_size = 0.05
+#    mpa_habfactor = 1
+#    sprinkler = TRUE
+#    keep_burn = TRUE
+#    adult_distance = adult_distance
+#    juve_adult_distance = juve_adult_distance
+#    adult_juve_distance = adult_juve_distance
+#    juve_distance = juve_distance
+#    shore_dist = shore_dist
+#    rec_driver = "stochastic"
+#    estimate_costs = TRUE
+#    beta =1
+#  #  tune_costs = FALSE
+#    hab_qual = hab_qual
+#  #fuel_eff = 0.68 # km/L back of envelope calculation
+#  #fuel_price = 1.4 # euro/L price of fuel (found of top internet search)
+# #  perc_op_cost = 0.5
+# 
+# 
 
   # What is this doing
     if (sprinkler == FALSE & mpa_habfactor == 1){
@@ -243,8 +244,8 @@ sim_fishery_az<-
     cost_series <-
       generate_timeseries(
         fleet$cost_intercept,
-       # fleet$cost_cv,
-        #fleet$cost_ac,
+        fleet$cost_cv,
+        fleet$cost_ac,
         fleet$cost_slope,
         time = sim_years
       )
@@ -421,7 +422,7 @@ sim_fishery_az<-
            cell_lookup[cell_lookup$juve_ad_hab == 1, "cell_no"]
 
          adult_move_grid[adult_move_grid$from %in% juve_cell_no |
-                           adult_juve_move_grid$to %in% juve_cell_no, "prob_move"] <- 0
+                           adult_move_grid$to %in% juve_cell_no, "prob_move"] <- 0
          #number of mature age classes
          mat_age_class<-length(unique(pop$age[pop$age>fish$age_mature]))
          
@@ -432,7 +433,7 @@ sim_fishery_az<-
            dplyr::select(-from) %>%
            as.matrix()
         # Repeat each row (probabiliyt of movement per cell for each age class)
-         adult_move_matrix<-   do.call("rbind", replicate(mat_age_class, adult_move_matrix, simplify = FALSE))
+       #  adult_move_matrix<-   do.call("rbind", replicate(mat_age_class, adult_move_matrix, simplify = FALSE))
         
        #    juve_adult_move_grid <- juve_adult_distance %>%
        #     left_join(how_crowded, by = c("from" = "cell_no")) %>%
@@ -482,14 +483,14 @@ sim_fishery_az<-
 
   # This should move adults between adult patches (with or without density dependence)
   # Currently not working       
-       pop[now_year &
-             pop$age > (fish$age_mature),] <-
-         move_fish_az(
-           here_pop = pop %>% filter(year == y, age > fish$age_mature),
-           fish = fish,
-           num_patches = num_patches,
-           move_matrix = adult_move_matrix
-         )
+       # pop[now_year &
+       #       pop$age > (fish$age_mature),] <-
+       #   move_fish_az(
+       #     here_pop = pop %>% filter(year == y, age > fish$age_mature),
+       #     fish = fish,
+       #     num_patches = num_patches,
+       #     move_matrix = adult_move_matrix
+       #   )
 
 # Add MPA -----------------------------------------------------------------
 
@@ -563,7 +564,7 @@ if (constant_L == FALSE){
  
   if (constant_L == TRUE) {      
     pop[now_year, "effort"] <-
-      determine_and_distribute_effort_az( L= L,
+      determine_and_distribute_effort_az( L= fleet$L,
                                           pops = pop %>% filter(year == y),
                                           fish = fish,
                                           fleet = fleet,
@@ -575,7 +576,7 @@ if (constant_L == FALSE){
 
   }       
         pop[now_year, "f"] <-
-        pop[now_year, "effort"] * fleet$q[y]
+        pop[now_year, "effort"] * fleet$q
 
 }
 # Growth and Mortality ----------------------------------------------------
@@ -631,7 +632,7 @@ if (constant_L == FALSE){
  # Spawn and calculate R0 for each juvenile patch next year
 
       #Model phase is 'burn here so it skips calculating recruits and jumps down to calculate ssb0
-      adult_juve_move_matrix[is.na(adult_juve_move_matrix)]<-0
+     # adult_juve_move_matrix[is.na(adult_juve_move_matrix)]<-0
 # Don't need move matrix if re
        pop$numbers[pop$year == (y + 1) &
                     pop$age == fish$min_age] <-
@@ -640,7 +641,7 @@ if (constant_L == FALSE){
           fish = fish,
           num_patches = num_patches,
           phase = model_phase,
-          move_matrix = adult_juve_move_matrix, # This should be larval dispersal matrix. Only used in one of the recruitment assumption options
+          move_matrix = adult_move_matrix, # This should be larval dispersal matrix. Only used in one of the recruitment assumption options
           patch_habitat = cell_lookup$juve_ad_hab
         )
 
@@ -664,8 +665,8 @@ if (constant_L == FALSE){
 
 
     }
-    rec_mat <-
-      dplyr::data_frame(year = 1:sim_years, rec_dev = rec_devs) # Data fraom of recruitment deviates
+   # rec_mat <-
+    #  dplyr::data_frame(year = 1:sim_years, rec_dev = rec_devs) # Data fraom of recruitment deviates
 
 
     og <- burn_years
@@ -674,7 +675,7 @@ if (constant_L == FALSE){
     }
 
     pop <- pop %>%
-      dplyr::left_join(rec_mat, by = "year") %>%
+      #dplyr::left_join(rec_mat, by = "year") %>%
       dplyr::filter(year > burn_years, year < max(year)) %>%
       dplyr::mutate(
         burn = year <= og,

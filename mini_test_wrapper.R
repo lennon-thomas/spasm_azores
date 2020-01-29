@@ -16,7 +16,8 @@ source('~/GitHub/spasm_azores/R/sim_fishery_az.R')
 source('~/GitHub/spasm_azores/R/estimate-costs_az.R')
 source('~/GitHub/spasm_azores/R/create_fleet_az.R')
 source('~/GitHub/spasm_azores/R/move_fish_az.R')
-boxdir<-"/Users/lennonrosethomas/Box Sync/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
+source('~/github/spasm_azores/R/determine_and_distribute_effort_az.R')
+boxdir<-"/Users/lennonthomas/Box Sync/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
 #boxdir <- "C:/Users/iladner/Box/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
 runname<-"test"
 
@@ -125,17 +126,18 @@ fish <-
 
 fleet <- create_fleet_az(
   fish = fish,
-  q = 0.00014, # Get this from JABBA output
-  cost_intercept =  853.3343,#440.6,
+  q = 0.014, # Get this from JABBA output
+  cost_intercept =  1e-03,#853.3343,#440.6,
   #cost_factor = 1, #How many X bigger are capital costs relative to cost of fuel (i.e. how much is distance from shore going to matter)
   # distance_factor<-5, # This should be how much it costs to go each km (~fuel cost/km)   cost_cv =  0,
-  #cost_ac = 0,
-  cost_slope = 0.01, 
+  cost_ac = 0,
+  cost_slope = 1e-04, 
+  cost_cv = 0,
   beta = 1.3,
   #This has to be >0 in order for distance from shore to be considered cost but increases costs significantly
-  #q_cv = 0.01,
-  #q_ac = 0,
-  #q_slope = 0,
+  q_cv = 0.00,
+  q_ac = 0,
+  q_slope = 0,
   #eq_f = .1,
   b_ref_oa = 0.25,#0.25,
  # max_cr_ratio = 0.8, ## this is cost revene ratio- the higher the number the higher the costs.  this is how you change economics.
@@ -143,12 +145,13 @@ fleet <- create_fleet_az(
  # sigma_effort = 0.0,
   length_50_sel = 0.1 * fish$linf,
   initial_effort = 0.2, # This is something we can take out depending on which equations we are using
-
+  delta = 2, # need to figure out wha this  means- borrowed value from spasm
 #  theta = 1e-1,
-  max_perc_change_f = 2,
+ # max_perc_change_f = 2,
   effort_allocation = "simple", #"gravity", #'simple',
   mpa_reaction = "leave",#"leave", #"leave"
-  profit_lags = 10) # This is how sensitive fleet is to changes in profit. Do the respond on annual basis vs. 5 year average.)
+  profit_lags=3,
+  L = 6) # This is how sensitive fleet is to changes in profit. Do the respond on annual basis vs. 5 year average.)
 
 
 
@@ -176,8 +179,7 @@ system.time(simple <- sim_fishery_az(
   hab_qual = hab_qual,
   rec_driver = "stochastic",
   estimate_costs = FALSE ,
-  constant_L = TRUE,
-  L =0.1#constant annual value of effort to be distributed to all patches
+  constant_L = TRUE#constant annual value of effort to be distributed to all patches
 ))
 
 
@@ -188,6 +190,6 @@ simple %>%
   # mpa == TRUE) %>%
   dplyr::group_by(patch)
 sum(t$biomass)/t$b0
-plot_spasm(simple, type = "patch", font_size = 12)
+plot_spasm_az(simple, type = "patch", font_size = 12, L=fleet$L)
 
-plot_spasm(simple, type = "totals", font_size = 12)
+plot_spasm_az(simple, type = "totals", font_size = 12,L=fleet$L)

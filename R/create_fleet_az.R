@@ -49,7 +49,15 @@ create_fleet_az <- function(eq_f = NA,
                          fleet_model = 'constant-effort',
                          effort_allocation = 'gravity',
                          cost_function = 'constant',
-                         profit_lags = 1
+                         profit_lags = 1,
+                         initial_effort = 0.2,
+                         delta = 2,
+                         q_cv = 0.00,
+                         q_ac = 0,
+                         q_slope = 0,
+                         cost_ac = 0,
+                         cost_cv = 0,
+                         L = 6
                          ) {
 
 
@@ -66,7 +74,7 @@ create_fleet_az <- function(eq_f = NA,
 
   sel_at_age <- p_sel_at_age
 
-  mey_buffer <- mey_buffer
+  #mey_buffer <- mey_buffer
 
   rm(fish)
 
