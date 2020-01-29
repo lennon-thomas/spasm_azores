@@ -49,33 +49,32 @@ sim_fishery_az<-
            L,
            cost_cv = 0) {
 # # #
-#    fish = fish
-#    fleet = fleet
-#    manager = create_manager(mpa_size = 0, year_mpa = 100)
-#    num_patches = 20
-#    sim_years = 20
-#    burn_years = 1
-#    time_step = fish$time_step
-#    random_mpas =TRUE
-#    min_size = 0.05
-#    mpa_habfactor = 1
-#    sprinkler = TRUE
-#    keep_burn = TRUE
-#    adult_distance = adult_distance
-#    juve_adult_distance = juve_adult_distance
-#    adult_juve_distance = adult_juve_distance
-#    juve_distance = juve_distance
-#    shore_dist = shore_dist
-#    rec_driver = "stochastic"
-#    estimate_costs = TRUE
-#    beta =1
-#  #  tune_costs = FALSE
-#    hab_qual = hab_qual
-#  #fuel_eff = 0.68 # km/L back of envelope calculation
-#  #fuel_price = 1.4 # euro/L price of fuel (found of top internet search)
-# #  perc_op_cost = 0.5
-# 
-# 
+#   fish = fish
+#   fleet = fleet
+#   manager = create_manager(mpa_size = 0, year_mpa = 100)
+#   num_patches = 20
+#   sim_years = 20
+#   burn_years = 1
+#   time_step = fish$time_step
+#   random_mpas =TRUE
+#   min_size = 0.05
+#   mpa_habfactor = 1
+#   sprinkler = TRUE
+#   keep_burn = TRUE
+#   adult_distance = adult_distance
+#   juve_adult_distance = juve_adult_distance
+#   adult_juve_distance = adult_juve_distance
+#   juve_distance = juve_distance
+#   shore_dist = shore_dist
+#   rec_driver = "stochastic"
+#   estimate_costs = TRUE
+# #  tune_costs = FALSE
+#   hab_qual = hab_qual
+# #fuel_eff = 0.68 # km/L back of envelope calculation
+# fuel_price = 1.4 # euro/L price of fuel (found of top internet search)
+#  perc_op_cost = 0.5
+
+
 
   # What is this doing
     if (sprinkler == FALSE & mpa_habfactor == 1){
@@ -175,20 +174,20 @@ sim_fishery_az<-
         (1:num_patches)[0:prop_mpas] #weird zero is in case prop_mpas is zero
     }
 
-    if (!all(is.na(manager$mpa_locations))){
+ #   if (!all(is.na(manager$mpa_locations))){
 
-      if (prop_mpas > 0){
-        warning("overwriting MPA size with specific MPA locations")
-      }
+  #    if (prop_mpas > 0){
+   #     warning("overwriting MPA size with specific MPA locations")
+    #   }
+    # 
+    #   mpa_locations <- manager$mpa_locations
+    # 
+    #   if (max(mpa_locations) > num_patches){
+    #     stop("invalid MPA location supplied, make sure MPAs fit inside number of patches")
+    #   }
+    # }
 
-      mpa_locations <- manager$mpa_locations
-
-      if (max(mpa_locations) > num_patches){
-        stop("invalid MPA location supplied, make sure MPAs fit inside number of patches")
-      }
-    }
-
-
+   # mpa_locations <- manager$mpa_locations
 # Define habitat for each patch and distance matrices ---------------------
 
 # This should be a vector indicating which cells are juvenile habitat [1] and which cells are adult habitat [0]
@@ -369,9 +368,10 @@ sim_fishery_az<-
        dplyr::select(from, to, prob_move) %>%
        spread(to, prob_move) %>%
        dplyr::select(-from) %>%
+     #  uncount(10) %>%
        as.matrix()
 
-   
+ #browser()  
 # Start looping through years ---------------------------------------------
 
      for (y in 1:(sim_years - 1)) {
@@ -386,73 +386,74 @@ sim_fishery_az<-
        # Density movement modifier is a parameter that indicates how much density dependence affects movement. Must be between 0 and 1 (?).
        # Density dependent adult movement does not occur during burn years
 
-       if (fish$density_movement_modifier < 1 & y > burn_years) {
-         slope <-
-           fish$adult_movement - (fish$adult_movement * fish$density_movement_modifier)
-
-
-         how_crowded <- pop %>%
-           filter(now_year) %>%
-           group_by(patch) %>%
-           summarise(ssb = sum(ssb, na.rm = TRUE)) %>%
-           dplyr::arrange(patch) %>%
-           mutate(depletion = ssb / fish$ssb0) %>%
-           mutate(move_rate = pmin(
-             fish$adult_movement,
-             slope * depletion + (fish$adult_movement * fish$density_movement_modifier)
-           )) %>%
-              dplyr::select(patch, move_rate)
-
-         how_crowded <- left_join(how_crowded, cell_lookup) %>%
-           dplyr::select(cell_no, move_rate)
-
-         adult_distance[is.na(adult_distance)] <- 0
-
-         adult_move_grid <- adult_distance %>%
-           left_join(how_crowded, by = c("from" = "cell_no")) %>%
-           dplyr::mutate(movement = ifelse(is.na(dist), NA, ifelse(
-             is.finite(dnorm(dist, 0, move_rate)),
-             dnorm(dist, 0, move_rate),
-             1
-           )))  %>%
-           group_by(from) %>%
-           dplyr::mutate(prob_move = movement / sum(movement))
-
-         juve_cell_no  <-
-           cell_lookup[cell_lookup$juve_ad_hab == 1, "cell_no"]
-
-         adult_move_grid[adult_move_grid$from %in% juve_cell_no |
-                           adult_move_grid$to %in% juve_cell_no, "prob_move"] <- 0
-         #number of mature age classes
-         mat_age_class<-length(unique(pop$age[pop$age>fish$age_mature]))
-         
-         adult_move_matrix <- adult_move_grid %>%
-           ungroup() %>%
-           dplyr::select(from, to, prob_move) %>%
-           spread(to, prob_move) %>%
-           dplyr::select(-from) %>%
-           as.matrix()
-        # Repeat each row (probabiliyt of movement per cell for each age class)
-       #  adult_move_matrix<-   do.call("rbind", replicate(mat_age_class, adult_move_matrix, simplify = FALSE))
-        
-       #    juve_adult_move_grid <- juve_adult_distance %>%
+       # if (fish$density_movement_modifier < 1 & y > burn_years) {
+       #   slope <-
+       #     fish$adult_movement - (fish$adult_movement * fish$density_movement_modifier)
+       # 
+       # 
+       #   how_crowded <- pop %>%
+       #     filter(now_year) %>%
+       #     group_by(patch) %>%
+       #     summarise(ssb = sum(ssb, na.rm = TRUE)) %>%
+       #     dplyr::arrange(patch) %>%
+       #     mutate(depletion = ssb / fish$ssb0) %>%
+       #     mutate(move_rate = pmin(
+       #       fish$adult_movement,
+       #       slope * depletion + (fish$adult_movement * fish$density_movement_modifier)
+       #     )) %>%
+       #        dplyr::select(patch, move_rate)
+       # 
+       #   how_crowded <- left_join(how_crowded, cell_lookup) %>%
+       #     dplyr::select(cell_no, move_rate)
+       # 
+       #   adult_distance[is.na(adult_distance)] <- 0
+       # 
+       #   adult_move_grid <- adult_distance %>%
        #     left_join(how_crowded, by = c("from" = "cell_no")) %>%
-       #     dplyr::mutate (movement = ifelse(is.na(dist), NA, ifelse(
+       #     dplyr::mutate(movement = ifelse(is.na(dist), NA, ifelse(
        #       is.finite(dnorm(dist, 0, move_rate)),
        #       dnorm(dist, 0, move_rate),
        #       1
        #     )))  %>%
        #     group_by(from) %>%
-       #     dplyr::mutate(prob_move = movement / sum(movement, na.rm = TRUE))
+       #     dplyr::mutate(prob_move = movement / sum(movement))
        # 
-       #   juve_adult_move_matrix <- juve_adult_move_grid %>%
+       #   juve_cell_no  <-
+       #     cell_lookup[cell_lookup$juve_ad_hab == 1, "cell_no"]
+       # 
+       #   adult_move_grid[adult_move_grid$from %in% juve_cell_no |
+       #                     adult_move_grid$to %in% juve_cell_no, "prob_move"] <- 0
+       #   #number of mature age classes
+       # 
+       #   
+       #   adult_move_matrix <- adult_move_grid %>%
        #     ungroup() %>%
        #     dplyr::select(from, to, prob_move) %>%
        #     spread(to, prob_move) %>%
        #     dplyr::select(-from) %>%
+       #   #  uncount(10) %>%
        #     as.matrix()
-       # 
-        }
+       #  # Repeat each row (probabiliyt of movement per cell for each age class)
+       #  adult_move_matrix<-   do.call("rbind", replicate(mat_age_class, adult_move_matrix, simplify = FALSE))
+       #  
+       # #    juve_adult_move_grid <- juve_adult_distance %>%
+       # #     left_join(how_crowded, by = c("from" = "cell_no")) %>%
+       # #     dplyr::mutate (movement = ifelse(is.na(dist), NA, ifelse(
+       # #       is.finite(dnorm(dist, 0, move_rate)),
+       # #       dnorm(dist, 0, move_rate),
+       # #       1
+       # #     )))  %>%
+       # #     group_by(from) %>%
+       # #     dplyr::mutate(prob_move = movement / sum(movement, na.rm = TRUE))
+       # # 
+       # #   juve_adult_move_matrix <- juve_adult_move_grid %>%
+       # #     ungroup() %>%
+       # #     dplyr::select(from, to, prob_move) %>%
+       # #     spread(to, prob_move) %>%
+       # #     dplyr::select(-from) %>%
+       # #     as.matrix()
+       # # 
+       #  }
  # Move different age classes ----------------------------------------------
 
        # Age mat (4) just sum all individuals at age mat and move them from juvenile to adult habitat based on adult habitat quality
@@ -463,8 +464,8 @@ sim_fishery_az<-
        total_no <-
          sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(numbers))
 
-   #    total_bio<- sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(biomass))
-    #   total_ssb<- sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(ssb))
+      total_bio<- sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(biomass))
+       total_ssb<- sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(ssb))
 
        ## Move age at maturity from juvenile to adult habitat
 
@@ -472,9 +473,9 @@ sim_fishery_az<-
              pop$age == (fish$age_mature), ] <- pop[now_year &
                                                       pop$age == fish$age_mature, ] %>%
          group_by(age) %>%
-         mutate(numbers = total_no * cell_lookup$hab_qual) %>%
-             #   biomass = total_bio * cell_lookup$hab_qual,
-            #    ssb = total_ssb * cell_lookup$hab_qual) %>%
+         mutate(numbers = total_no * cell_lookup$hab_qual,
+               biomass = total_bio * cell_lookup$hab_qual,
+                ssb = total_ssb * cell_lookup$hab_qual) %>%
          ungroup ()
 
 
@@ -482,15 +483,20 @@ sim_fishery_az<-
        pop$numbers[is.na(pop$numbers)] <- 0
 
   # This should move adults between adult patches (with or without density dependence)
-  # Currently not working       
-       # pop[now_year &
-       #       pop$age > (fish$age_mature),] <-
-       #   move_fish_az(
-       #     here_pop = pop %>% filter(year == y, age > fish$age_mature),
-       #     fish = fish,
-       #     num_patches = num_patches,
-       #     move_matrix = adult_move_matrix
-       #   )
+  # Currently not working      
+       mat_age_class<-length(unique(pop$age[pop$age>fish$age_mature])) 
+       
+    #   adult_move_matrix<-   do.call("rbind", replicate(mat_age_class, adult_move_matrix, simplify = FALSE))
+       
+       
+        pop[now_year &
+              pop$age > (fish$age_mature),] <-
+          move_fish_az(
+            here_pop = pop %>% filter(year == y, age > fish$age_mature),
+            fish = fish,
+            num_patches = num_patches,
+            move_matrix = adult_move_matrix
+          )
 
 # Add MPA -----------------------------------------------------------------
 

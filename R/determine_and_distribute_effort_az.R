@@ -1,6 +1,6 @@
 
 determine_and_distribute_effort_az<- function (
-  L= 0.1,
+  L= fleet$L,
   pops = pop %>% filter(year == y),
   fish = fish,
   fleet = fleet,
@@ -12,7 +12,7 @@ determine_and_distribute_effort_az<- function (
   manager = manager
 ){
   
-  fun <- function (x,b,c) (price*b*exp(-x))-(beta*c*x^beta-1)-L#(x^1.3)-(10*x)+10
+  fun <- function (x,b,c) (price*b*exp(-x))-(beta*c*x^(beta-1))-L#(x^1.3)-(10*x)+10
   pop_summary<- pops %>%
     group_by(patch) %>%
     summarise(patch_ssb=sum(ssb),
@@ -22,8 +22,14 @@ determine_and_distribute_effort_az<- function (
   #solve for E
   epatch<-vector()
   for (i in 1:dim(pop_summary)[1]){
-    epatch[i] <- uniroot(fun, c(0, 1000000),pop_summary$patch_ssb[i],pop_summary$patch_cost[i])$root 
-  } 
+    #epatch[i] <- uniroot(fun, c(0, 1000000),pop_summary$biomass[i],pop_summary$patch_cost[i])$root
+    errortry <- try( d <- uniroot(fun, c(0, 1000000),pop_summary$patch_ssb[i],pop_summary$patch_cost[i])$root,silent = TRUE)
+    if (class(errortry) == "try-error") {
+      epatch[i] <- 0
+    }else{
+      epatch[i] <- d
+    }
+  }
   
   pops$effort<-epatch %>%
     rep(each = length(unique(pops$age)))
