@@ -15,7 +15,7 @@
 #' }
 #'
 #'
-plot_spasm_az <- function(sim, type = "patch", font_size = 14, L=fleet$L){
+plot_spasm_az <- function(sim, type = "patch", font_size = 14, L=fleet$L, cost_intercept = fleet$cost_intercept){
 
 mpayear <- sim$year[which(sim$mpa == TRUE)[1]]
 
@@ -47,7 +47,7 @@ if (type == "patch"){
     geom_line(show.legend = F, size = 1.5) +
     facet_wrap( ~ metric, scales = "free_y") +
     labs(x = "Year",  y = "", caption = "Each line/color represents a patch. Vertical line shows year MPA put in place",
-         title = paste("MPA Size:",scales::percent(mpasize),"        L=",L)) +
+         title = paste("MPA Size:",scales::percent(mpasize),"        L= ",L, "  cost_intercept = ",cost_intercept)) +
     theme_bw()
 
 }
@@ -72,7 +72,7 @@ out <- sim %>%
   geom_line(show.legend = F, size = 1.5) +
   facet_wrap( ~ metric, scales = "free_y") +
   labs(x = "Year",  y = "", caption = "Vertical line shows year MPA put in place",
-       title = paste("MPA Size:",scales::percent(mpasize),"       L =",L)) +
+       title = paste("MPA Size:",scales::percent(mpasize),"         L =",L, "         cost_intercept =",cost_intercept)) +
   theme_bw()
 
 }

@@ -57,7 +57,7 @@ fish <-
     cv_len = 0,
     sigma_r = 0.00,
     steepness = 0.8,
-    r0 = 10972.933, #This should correspond to give us the K from best Jabba run during burn years. Still need to create function to solve for this.
+    r0 = 109720.933, #This should correspond to give us the K from best Jabba run during burn years. Still need to create function to solve for this.
     rec_ac = 0,
     adult_movement = 20,
     larval_movement = 2000,
@@ -127,11 +127,11 @@ fish <-
 fleet <- create_fleet_az(
   fish = fish,
   q = 0.014, # Get this from JABBA output
-  cost_intercept =  1e-03,#853.3343,#440.6,
+  cost_intercept = 850,# 1e-03,#853.3343,#440.6,
   #cost_factor = 1, #How many X bigger are capital costs relative to cost of fuel (i.e. how much is distance from shore going to matter)
   # distance_factor<-5, # This should be how much it costs to go each km (~fuel cost/km)   cost_cv =  0,
   cost_ac = 0,
-  cost_slope = 1e-04, 
+  cost_slope = 1e-02, 
   cost_cv = 0,
   beta = 1.3,
   #This has to be >0 in order for distance from shore to be considered cost but increases costs significantly
@@ -151,7 +151,7 @@ fleet <- create_fleet_az(
   effort_allocation = "simple", #"gravity", #'simple',
   mpa_reaction = "leave",#"leave", #"leave"
   profit_lags=3,
-  L = 6) # This is how sensitive fleet is to changes in profit. Do the respond on annual basis vs. 5 year average.)
+  L = 	25000) # This is how sensitive fleet is to changes in profit. Do the respond on annual basis vs. 5 year average.)
 
 
 
