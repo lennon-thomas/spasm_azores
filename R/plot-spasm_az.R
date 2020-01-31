@@ -60,7 +60,6 @@ out <- sim %>%
     Effort = sum(effort),
     Profits = sum(profits),
     Biomass = sum(biomass),
-    Effort = sum(biomass),
     Catch = sum(biomass_caught)
   ) %>%
  ungroup() %>%

@@ -57,7 +57,7 @@ distribute_fleet_az<-
   # we assume beta equals 1.3 which implies increasing effort, increases the unit of cost   
     pops$effort<-pop_summary$p_effort %>%
       rep(each = length(unique(pops$age)))
-    
+    pops$effort[pops$mpa==TRUE]<-0
     
 return (pops$effort)
   }

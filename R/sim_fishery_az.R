@@ -539,7 +539,7 @@ if (constant_L == FALSE){
 
      
 # Find optimal profit derivative (p as a function of E for this timestep) Should be 19007.2     
-   opt_dev_profit<-optimize(find_L_az, interval = c(10000.00000,100000.00000), maximum = FALSE,
+   opt_dev_profit<-optimize(find_L_az, interval = c(1,1e6), maximum = FALSE,
                             pops = pop %>% filter(year == y),
                             cell_lookup = cell_lookup,
                             year = y,
@@ -554,6 +554,7 @@ if (constant_L == FALSE){
                             cost_intercept = fleet$cost_intercept, #853.3343
                             price = fish$price,
                             q = fleet$q[1])$minimum
+   print(paste0(opt_dev_profit," year =",y))
     
       pop[now_year, "effort"] <-
         distribute_fleet_az(

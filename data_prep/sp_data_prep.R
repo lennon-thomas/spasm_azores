@@ -68,6 +68,15 @@ juv=raster(paste0(boxdir,"raster_output_4k/juv_proj.tif"))
 goraz[goraz< 0.01]<-NA
 #rs_stack_study_region_combined=stack(EEZ,BLL,goraz,land,juv)
 
+area(BLL)
+
+all<-stack(EEZ,BLL,goraz,land,juv)
+show_landscape(all, xlab = "Lat",
+               ylab = "Long", discrete = FALSE, unique_scales = FALSE,
+               n_col = NULL, n_row = NULL) +
+  theme_nlm( viridis_scale = "C")
+
+
 adult<-goraz
 adult[!is.na(adult)]<-1
 
