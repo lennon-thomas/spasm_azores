@@ -59,10 +59,13 @@ out <- sim %>%
   summarise(
     Effort = sum(effort),
     Profits = sum(profits),
-    Biomass = sum(biomass)
+    Biomass = sum(biomass),
+    Effort = sum(biomass),
+    Catch = sum(biomass_caught)
   ) %>%
-  ungroup() %>%
-  mutate(`Profit Per Unit Effort` = Profits / Effort) %>%
+ ungroup() %>%
+  mutate(`Profit Per Unit Effort` = Profits / Effort,
+         f = Catch/Biomass) %>%
   gather(metric, value,-year) %>%
   ggplot(aes(year, value)) +
   theme_bw() +

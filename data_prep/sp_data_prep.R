@@ -76,7 +76,7 @@ all_habitat<-stack(adult,juv)
 all_habitat<-stackApply(all_habitat,c(1,1), fun=sum,na.rm=TRUE)
 
 all_habitat[all_habitat==0]<-NA
-
+writeRaster(all_habitat,paste0(boxdir,runname,"all_habitat.tif"))
 all_cells<-Which(!is.na(all_habitat),cells = TRUE)
 
 num_patches<-length(all_cells)

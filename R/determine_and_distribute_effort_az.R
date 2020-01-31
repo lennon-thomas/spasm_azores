@@ -15,7 +15,7 @@ determine_and_distribute_effort_az<- function (
   fun <- function (x,b,c) (price*b*exp(-x))-(beta*c*x^(beta-1))-L#(x^1.3)-(10*x)+10
   pop_summary<- pops %>%
     group_by(patch) %>%
-    summarise(patch_ssb=sum(ssb),
+    summarise(patch_biomass=sum(biomass),
               distance = unique(distance))
   #add cost per patch
   pop_summary <- pop_summary %>% mutate(patch_cost = cost_intercept + (cost_slope * distance))
@@ -23,7 +23,7 @@ determine_and_distribute_effort_az<- function (
   epatch<-vector()
   for (i in 1:dim(pop_summary)[1]){
     #epatch[i] <- uniroot(fun, c(0, 1000000),pop_summary$biomass[i],pop_summary$patch_cost[i])$root
-    errortry <- try( d <- uniroot(fun, c(0, 1000000),pop_summary$patch_ssb[i],pop_summary$patch_cost[i])$root,silent = TRUE)
+    errortry <- try( d <- uniroot(fun, c(0, 1000000),pop_summary$patch_biomass[i],pop_summary$patch_cost[i])$root,silent = TRUE)
     if (class(errortry) == "try-error") {
       epatch[i] <- 0
     }else{

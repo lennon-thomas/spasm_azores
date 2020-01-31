@@ -16,8 +16,10 @@ source('R/sim_fishery_az.R')
 source('R/estimate-costs_az.R')
 source('R/create_fleet_az.R')
 source('R/move_fish_az.R')
+source('~/GitHub/spasm_azores/R/create_fleet_az.R')
 source('R/determine_and_distribute_effort_az.R')
-boxdir<-"/Users/lennonthomas/Box Sync/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
+source('~/GitHub/spasm_azores/R/get_traits_az.R')
+boxdir<-"/Users/lennonrosethomas/Box Sync/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
 #boxdir <- "C:/Users/iladner/Box/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
 runname<-"test"
 
@@ -131,7 +133,7 @@ fleet <- create_fleet_az(
   #cost_factor = 1, #How many X bigger are capital costs relative to cost of fuel (i.e. how much is distance from shore going to matter)
   # distance_factor<-5, # This should be how much it costs to go each km (~fuel cost/km)   cost_cv =  0,
   cost_ac = 0,
-  cost_slope = 1e-06, 
+  cost_slope = 10,#1e-06, 
   cost_cv = 0,
   beta = 1.3,
   #This has to be >0 in order for distance from shore to be considered cost but increases costs significantly
@@ -151,7 +153,7 @@ fleet <- create_fleet_az(
   effort_allocation = "simple", #"gravity", #'simple',
   mpa_reaction = "concentrate",#"leave", #"leave"
   profit_lags=3,
-  L = 		0.01) # This is how sensitive fleet is to changes in profit. Do the respond on annual basis vs. 5 year average.)
+  L = 		0.000010) # This is how sensitive fleet is to changes in profit. Do the respond on annual basis vs. 5 year average.)
 
 
 
@@ -161,9 +163,9 @@ system.time(simple <- sim_fishery_az(
   fish = fish,
   fleet = fleet,
   manager = create_manager(mpa_size = 0.3,
-                           year_mpa = 20),
+                           year_mpa = 100),
   num_patches = 20,
-  sim_years = 40,
+  sim_years = 150,
   burn_years = 1,
   time_step = fish$time_step,
   #est_msy = FALSE,
@@ -191,6 +193,6 @@ simple %>%
   # mpa == TRUE) %>%
   dplyr::group_by(patch)
 sum(t$biomass)/t$b0
-plot_spasm_az(simple, type = "patch", font_size = 12, L=fleet$L)
+#plot_spasm_az(simple, type = "patch", font_size = 12, L=fleet$L)
 
 plot_spasm_az(simple, type = "totals", font_size = 12,L=fleet$L)

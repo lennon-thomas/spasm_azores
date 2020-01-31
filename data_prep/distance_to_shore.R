@@ -6,7 +6,7 @@ library(raster)
 library(rgdal)
 library(tidyverse)
 library(gdata)
-boxdir<-"/Users/lennonthomas/Box Sync/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
+boxdir<-"/Users/lennonrosethomas/Box Sync/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
 #
 runname<-"low_res_run"
 

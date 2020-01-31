@@ -148,17 +148,93 @@ names(rs_stack_study_region)
 dim(rs_stack_study_region)
 
 #testing them individually
-EEZ=raster("raster_output_4k/azores_EEZ_proj_4k.tif")
-BLL=raster("raster_output_4k/BLL_prj.tif")
-goraz=raster("raster_output_4k/goraz_mdl_prj.tif")
-land=raster("raster_output_4k/land_proj.tif")
-juv=raster("raster_output_4k/juv_proj.tif")
+EEZ=raster(paste0(boxdir,"raster_output_4k/azores_EEZ_proj_4k.tif"))
+ BLL=raster(paste0(boxdir,"raster_output_4k/BLL_prj.tif"))
+ goraz=raster(paste0(boxdir,"raster_output_4k/goraz_mdl_prj.tif"))
+ land=raster(paste0(boxdir,"raster_output_4k/land_proj.tif"))
+ juv=raster(paste0(boxdir,"raster_output_4k/juv_proj.tif"))
 
-rs_stack_study_region_combined=stack(EEZ,BLL,goraz,land,juv)
+goraz[goraz< 0.01]<-NA
+#rs_stack_study_region_combined=stack(EEZ,BLL,goraz,land,juv)
+
+adult<-goraz
+adult[!is.na(adult)]<-1
+
+all_habitat<-stack(adult,juv)
+
+all_habitat<-stackApply(all_habitat,c(1,1), fun=sum,na.rm=TRUE)
+
+all_habitat[all_habitat==0]<-NA
+
+all_cells<-Which(!is.na(all_habitat),cells = TRUE)
+
+num_patches<-length(all_cells)
+
+both_habitat_cell<-Which(all_habitat==3,cells=TRUE)
+
+juv_cell<-Which(all_habitat==2,cells=TRUE)
+
+juv_cell<-rbind(c(juv_cell,both_habitat_cell))
+
+adult_cell<-Which(all_habitat==1,cells = TRUE)
+
+adult_cell<-rbind(c(adult_cell,both_habitat_cell))
+
+hab_qual <- goraz
 
 
 
+total<-cellStats(hab_qual,"sum")
 
+hab_qual <- hab_qual/total
+
+
+
+hab_qual_vec<-hab_qual[all_cells]
+#mean_qual<-mean(hab_qual_vec)
+#is.na(hab_qual_vec)<-mean_qual
+#total<-cellStats(hab_qual,"sum")
+
+#hab_qual <- hab_qual/total
+
+
+dist<-all_habitat
+
+dist[is.na(dist)]<--1
+land[is.na(land)]<-0
+land[land==-1]<-NA
+
+dist<-mask(dist,land)
+
+dist_shore<-gridDistance(dist,origin=NA)
+distance<-dist_shore[all_cells]
+distance<-distance/1000
+dist_matrix <- matrix(data = 0, nrow = length(all_cells), ncol = 2 )
+colnames(dist_matrix)<-c("cell_no", "distance")
+dist_matrix[,1]<-all_cells
+dist_matrix[,2]<-distance
+
+dist_layer<-all_habitat
+dist_layer[all_cells]<-distance
+
+write.csv(dist_matrix,paste0(boxdir,runname,"/distance_to_shore.csv"))
+
+
+cell_lookup<-data.frame(matrix(ncol=7,nrow=num_patches))
+
+colnames(cell_lookup)<-c("patch","cell_no","juve_ad_hab","hab_qual","distance","adult","juve")
+cell_lookup[,1]<-c(1:num_patches)
+cell_lookup[,2]<-all_cells
+#0 =adult
+cell_lookup[,3]<-ifelse(cell_lookup$cell_no %in% juv_cell,1,0)
+cell_lookup[,4]<- hab_qual_vec#hab_qual<-c(.5,.05,.05,.05,0.05,0.05,0.05,0.05,0.05,.1,rep(0,10))# Adult habitat quality
+cell_lookup[,5]<-distance
+cell_lookup[,6]<-ifelse(cell_lookup$cell_no %in% adult_cell, TRUE, FALSE)
+cell_lookup[,7]<-ifelse(cell_lookup$cell_no %in% juv_cell, TRUE, FALSE)
+
+cell_lookup$distance[cell_lookup$distance==0]<-20
+
+write.csv(cell_lookup,paste0(boxdir,runname,"/cell_lookup.csv"))
 
 eez<-raster(paste0(boxdir,habitat_layer,"azoresEEZproj.tif"))
 land<-raster(paste0(boxdir,habitat_layer,"land_proj.tif"))

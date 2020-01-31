@@ -77,9 +77,9 @@ sim_fishery_az<-
 
 
   # What is this doing
-    if (sprinkler == FALSE & mpa_habfactor == 1){
-      burn_years <- 1
-    }
+ #   if (sprinkler == FALSE & mpa_habfactor == 1){
+  #    burn_years <- 1
+   # }
 
 
 # Set up- Create empty dateframes -----------------------------------------
@@ -107,7 +107,7 @@ sim_fishery_az<-
       dplyr::as_data_frame() %>%
       dplyr::arrange(year, patch, age)
 
-    pop<-left_join(pop,cell_lookup)
+    pop<-left_join(pop,cell_lookup, by="patch")
 
    # Creates vector of effort and F per year
     effort <- vector(mode = "double", length = sim_years)
@@ -304,18 +304,21 @@ sim_fishery_az<-
 
 # Add distance to shore to cost -------------------------------------------
 # distance is in kilometers
-     distance_to_shore <- shore_dist[cell_lookup$cell_no, ] %>%
-       dplyr::select(c(2, 3)) %>%
-       mutate(patch = seq(1:num_patches))
+     # distance_to_shore <- shore_dist[cell_lookup$cell_no, ] %>%
+     #   dplyr::select(c(2, 3)) %>%
+     #   mutate(patch = seq(1:num_patches))
+     # 
+     # colnames(distance_to_shore) <- c("cell_no", "distance", "patch")
+     # distance_to_shore$distance[distance_to_shore$distance==0]<-20
 
-     colnames(distance_to_shore) <- c("cell_no", "distance", "patch")
-     distance_to_shore$distance[distance_to_shore$distance==0]<-20
-
-     cost_frame <-
+  #  pop <- pop %>%
+    #   dplyr::left_join(distance_to_shore, by = ("patch"))
+    
+      cost_frame <-
          expand.grid(year = 1:sim_years, patch = 1:num_patches) %>%
          dplyr::as_data_frame() %>%
-         dplyr::left_join(cost_frame, by = "year") %>%
-         dplyr::left_join(distance_to_shore, by = "patch")
+         dplyr::left_join(cost_frame, by = "year")
+       #  dplyr::left_join(distance_to_shore, by = "patch")
 
 
 
@@ -371,7 +374,7 @@ sim_fishery_az<-
      #  uncount(10) %>%
        as.matrix()
 
-# browser()  
+#browser()  
 # Start looping through years ---------------------------------------------
 
      for (y in 1:(sim_years - 1)) {
@@ -460,12 +463,12 @@ sim_fishery_az<-
 
        # Move 4 year olds (age at mat) from juvenile to adult habitat. # of adults per patch is different.
 
-
+#browser()
        total_no <-
-         sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(numbers))
+         sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(numbers),na.rm=TRUE)
 
-      total_bio<- sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(biomass))
-       total_ssb<- sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(ssb))
+      total_bio<- sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(biomass),na.rm=TRUE)
+       total_ssb<- sum(pop %>% filter(year == y, age == fish$age_mature) %>% dplyr::select(ssb),na.rm = TRUE)
 
        ## Move age at maturity from juvenile to adult habitat
 
@@ -486,7 +489,7 @@ sim_fishery_az<-
   # Currently not working      
        mat_age_class<-length(unique(pop$age[pop$age>fish$age_mature])) 
        
-    #   adult_move_matrix<-   do.call("rbind", replicate(mat_age_class, adult_move_matrix, simplify = FALSE))
+      # adult_move_matrix<-   do.call("rbind", replicate(mat_age_class, adult_move_matrix, simplify = FALSE))
        
        
         pop[now_year &
@@ -518,7 +521,7 @@ sim_fishery_az<-
        }
 
 # Adjust fleet ------------------------------------------------------------
-
+#browser()
        if (y > (burn_years)) {
 
           # This is K calculated from burn years (no fishing)
