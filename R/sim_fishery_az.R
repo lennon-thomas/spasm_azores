@@ -371,7 +371,7 @@ sim_fishery_az<-
      #  uncount(10) %>%
        as.matrix()
 
- #browser()  
+# browser()  
 # Start looping through years ---------------------------------------------
 
      for (y in 1:(sim_years - 1)) {
@@ -386,54 +386,54 @@ sim_fishery_az<-
        # Density movement modifier is a parameter that indicates how much density dependence affects movement. Must be between 0 and 1 (?).
        # Density dependent adult movement does not occur during burn years
 
-       # if (fish$density_movement_modifier < 1 & y > burn_years) {
-       #   slope <-
-       #     fish$adult_movement - (fish$adult_movement * fish$density_movement_modifier)
+       if (fish$density_movement_modifier < 1 & y > burn_years) {
+          slope <-
+            fish$adult_movement - (fish$adult_movement * fish$density_movement_modifier)
+       # closer to 1 density dependence has less of an affect
        # 
-       # 
-       #   how_crowded <- pop %>%
-       #     filter(now_year) %>%
-       #     group_by(patch) %>%
-       #     summarise(ssb = sum(ssb, na.rm = TRUE)) %>%
-       #     dplyr::arrange(patch) %>%
-       #     mutate(depletion = ssb / fish$ssb0) %>%
-       #     mutate(move_rate = pmin(
-       #       fish$adult_movement,
-       #       slope * depletion + (fish$adult_movement * fish$density_movement_modifier)
-       #     )) %>%
-       #        dplyr::select(patch, move_rate)
-       # 
-       #   how_crowded <- left_join(how_crowded, cell_lookup) %>%
-       #     dplyr::select(cell_no, move_rate)
-       # 
-       #   adult_distance[is.na(adult_distance)] <- 0
-       # 
-       #   adult_move_grid <- adult_distance %>%
-       #     left_join(how_crowded, by = c("from" = "cell_no")) %>%
-       #     dplyr::mutate(movement = ifelse(is.na(dist), NA, ifelse(
-       #       is.finite(dnorm(dist, 0, move_rate)),
-       #       dnorm(dist, 0, move_rate),
-       #       1
-       #     )))  %>%
-       #     group_by(from) %>%
-       #     dplyr::mutate(prob_move = movement / sum(movement))
-       # 
-       #   juve_cell_no  <-
-       #     cell_lookup[cell_lookup$juve_ad_hab == 1, "cell_no"]
-       # 
-       #   adult_move_grid[adult_move_grid$from %in% juve_cell_no |
-       #                     adult_move_grid$to %in% juve_cell_no, "prob_move"] <- 0
-       #   #number of mature age classes
-       # 
-       #   
-       #   adult_move_matrix <- adult_move_grid %>%
-       #     ungroup() %>%
-       #     dplyr::select(from, to, prob_move) %>%
-       #     spread(to, prob_move) %>%
-       #     dplyr::select(-from) %>%
-       #   #  uncount(10) %>%
-       #     as.matrix()
-       #  # Repeat each row (probabiliyt of movement per cell for each age class)
+         how_crowded <- pop %>%
+           filter(now_year) %>%
+           group_by(patch) %>%
+           summarise(ssb = sum(ssb, na.rm = TRUE)) %>%
+           dplyr::arrange(patch) %>%
+           mutate(depletion = ssb / fish$ssb0) %>%
+           mutate(move_rate = pmin(
+             fish$adult_movement,
+             slope * depletion + (fish$adult_movement * fish$density_movement_modifier)
+           )) %>%
+              dplyr::select(patch, move_rate)
+
+         how_crowded <- left_join(how_crowded, cell_lookup) %>%
+           dplyr::select(cell_no, move_rate)
+
+         adult_distance[is.na(adult_distance)] <- 0
+
+         adult_move_grid <- adult_distance %>%
+           left_join(how_crowded, by = c("from" = "cell_no")) %>%
+           dplyr::mutate(movement = ifelse(is.na(dist), NA, ifelse(
+             is.finite(dnorm(dist, 0, move_rate)),
+             dnorm(dist, 0, move_rate),
+             1
+           )))  %>%
+           group_by(from) %>%
+           dplyr::mutate(prob_move = movement / sum(movement))
+
+         juve_cell_no  <-
+           cell_lookup[cell_lookup$juve_ad_hab == 1, "cell_no"]
+
+         adult_move_grid[adult_move_grid$from %in% juve_cell_no |
+                           adult_move_grid$to %in% juve_cell_no, "prob_move"] <- 0
+         #number of mature age classes
+
+
+         adult_move_matrix <- adult_move_grid %>%
+           ungroup() %>%
+           dplyr::select(from, to, prob_move) %>%
+           spread(to, prob_move) %>%
+           dplyr::select(-from) %>%
+         #  uncount(10) %>%
+           as.matrix()
+        # Repeat each row (probabiliyt of movement per cell for each age class)
        #  adult_move_matrix<-   do.call("rbind", replicate(mat_age_class, adult_move_matrix, simplify = FALSE))
        #  
        # #    juve_adult_move_grid <- juve_adult_distance %>%
@@ -453,7 +453,7 @@ sim_fishery_az<-
        # #     dplyr::select(-from) %>%
        # #     as.matrix()
        # # 
-       #  }
+        }
  # Move different age classes ----------------------------------------------
 
        # Age mat (4) just sum all individuals at age mat and move them from juvenile to adult habitat based on adult habitat quality
