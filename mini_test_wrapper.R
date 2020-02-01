@@ -1,7 +1,7 @@
 
 library(tidyverse)
 library(FishLife)
-library(spasm)
+#library(spasm)
 library(ggridges)
 library(gganimate)
 library(raster)
@@ -19,8 +19,15 @@ source('R/move_fish_az.R')
 source('~/GitHub/spasm_azores/R/create_fleet_az.R')
 source('R/determine_and_distribute_effort_az.R')
 source('~/GitHub/spasm_azores/R/get_traits_az.R')
+source('R/generate-length-to-age.R')
+source('R/create_manager.R')
+source('R/calc-density-gradient.R')
+source('R/generate-timeseries.R')
+source('R/grow_and_die.R')
+source('R/calculate_recruits.R')
 boxdir<-"/Users/lennonrosethomas/Box Sync/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
 #boxdir <- "C:/Users/iladner/Box/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
+#boxdir <- "C:/Users/ianla/Box/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
 runname<-"test"
 
 
