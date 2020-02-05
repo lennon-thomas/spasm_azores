@@ -31,18 +31,18 @@ pop <- read_csv("data/pop_example.csv")
 ssb0 <- read_csv("data/example_ssb0.csv")$value
 
 #assign movement vairable for the time being. eventually witll change the value of the density_movement_modifier
-adult_movement <- 500
+adult_movement <- 100
 density_movement_modifier <- 0.5
 
 
 ##################### density independent movement
 adult_move_grid_independent <- adult_distance %>%
-  left_join(cell_lookup, by = c("to" = "cell_no")) %>%
+  left_join(cell_lookup, by = c("to" = "cell_no"))%>%
   dplyr::mutate(movement = ifelse(is.na(dist), NA, ifelse(
     is.finite(dnorm(dist, 0, adult_movement)),
     dnorm(dist, 0, adult_movement),
     1
-  ))) %>%
+  )))%>%
   group_by(from) %>%
   dplyr::mutate(prob_move = movement / sum(movement, na.rm = TRUE))
 
@@ -53,6 +53,8 @@ adult_move_matrix_independent <- adult_move_grid_independent %>%
   dplyr::select(-from) %>%
   #  uncount(10) %>%
   as.matrix()
+
+adult_move_matrix_independent[is.na(adult_move_matrix_independent)] <- 0
 
 ##################### density dependent movement
 slope <-
@@ -105,8 +107,7 @@ adult_move_matrix_dependent <- adult_move_grid_dependent %>%
 pop_with_independent_movement <- pop
 
 #something is not working in application of move_fish_az
-pop_with_independent_movement[pop_with_independent_movement$age > 4,]<-
-  move_fish_az(
+pop_with_independent_movement[pop_with_independent_movement$age > 4,] <- move_fish_az(
     here_pop = pop_with_independent_movement %>% filter(age > 4),
     fish = NA,
     num_patches = 20,
