@@ -220,74 +220,83 @@ Density-dependent movement allows the density of fish in a given patch to modula
 * `density_movement_modifier`: The degree to which fish are "sensitive" to crowding. As.....
 
 ```{r lets figure this out for density-dependent-movement}
-dens_dependent_example <- tibble()
 
-dens_modifier_vector <- c(0,0.5,0.99)
 
-adult_movement <- 100
+dens_modifier_vector <- c(0.1,0.5,0.9)
 
-for(index in 1:length(dens_modifier_vector)){
+adult_movement_vector <- ssb_movement_vector
 
-  pop_before_movement <- pop %>% 
-  filter(year == 2, age > 4) %>% 
-  mutate(timing = "before movement")
+for(dens_index in 1:length(dens_modifier_vector)){
   
-  slope <-
-  adult_movement - (adult_movement * dens_modifier_vector[index])
-
-how_crowded <- pop %>%
-  group_by(patch) %>%
-  summarise(ssb = sum(ssb, na.rm = TRUE)) %>%
-  dplyr::arrange(patch) %>%
-  mutate(depletion = ssb / ssb0) %>%
-  mutate(move_rate = pmin(
-    adult_movement,
-    slope * depletion + (adult_movement * dens_modifier_vector[index])
-  )) %>%
-  dplyr::select(patch, move_rate) %>% 
-  left_join(cell_lookup) %>%
-  dplyr::select(cell_no, move_rate)
-
-move_matrix_temp <- adult_distance %>%
-  left_join(how_crowded, by = c("from" = "cell_no")) %>%
-  dplyr::mutate(movement = ifelse(is.na(dist), NA, ifelse(
-    is.finite(dnorm(dist, 0, move_rate)),
-    dnorm(dist, 0, move_rate),
-    1
-  )))  %>%
-  group_by(from) %>%
-  dplyr::mutate(prob_move = movement / sum(movement,na.rm = TRUE))%>%
-  ungroup()%>%
-  dplyr::select(from, to, prob_move) %>%
-  spread(to, prob_move) %>%
-  dplyr::select(-from) %>%
-    as.matrix()
- 
-move_matrix_temp[is.na(move_matrix_temp)] <- 0
-
-pop_after_movement <-
-  move_fish_az(
-    here_pop = pop_before_movement,
-    fish = NA,
-    num_patches = 20,
-    move_matrix = move_matrix_temp
-  ) %>% mutate(timing = "after movement")
-
-pop_temp <- rbind(pop_before_movement,pop_after_movement) %>% 
-  mutate(rho = dens_modifier_vector[index])
-
-dens_dependent_example <- rbind(dens_dependent_example, pop_temp)
-}
-
-dens_dependent_example %>%  group_by(rho,patch, timing) %>% 
+  dens_dependent_example <- tibble()
+  
+  for(move_index in 1:length(adult_movement_vector)){
+    
+    # dens_index <- 1
+    # move_index <- 1
+    
+    pop_before_movement <- pop %>% 
+      filter(year == 2, age > 4) %>% 
+      mutate(timing = "before movement")
+    
+    slope <-
+      adult_movement_vector[move_index] - (adult_movement_vector[move_index] * dens_modifier_vector[dens_index])
+    
+    how_crowded <- pop %>%
+      group_by(patch) %>%
+      summarise(ssb = sum(ssb, na.rm = TRUE)) %>%
+      dplyr::arrange(patch) %>%
+      mutate(depletion = ssb / ssb0) %>%
+      mutate(move_rate = pmin(
+        adult_movement_vector[move_index],
+        slope * depletion + (adult_movement_vector[move_index] * dens_modifier_vector[dens_index])
+      )) %>%
+      dplyr::select(patch, move_rate) %>% 
+      left_join(cell_lookup) %>%
+      dplyr::select(cell_no, move_rate)
+    
+    move_matrix_temp <- adult_distance %>%
+      left_join(how_crowded, by = c("from" = "cell_no")) %>%
+      dplyr::mutate(movement = ifelse(is.na(dist), NA, ifelse(
+        is.finite(dnorm(dist, 0, move_rate)),
+        dnorm(dist, 0, move_rate),
+        1
+      )))  %>%
+      group_by(from) %>%
+      dplyr::mutate(prob_move = movement / sum(movement,na.rm = TRUE))%>%
+      ungroup()%>%
+      dplyr::select(from, to, prob_move) %>%
+      spread(to, prob_move) %>%
+      dplyr::select(-from) %>%
+      as.matrix()
+    
+    move_matrix_temp[is.na(move_matrix_temp)] <- 0
+    
+    pop_after_movement <-
+      move_fish_az(
+        here_pop = pop_before_movement,
+        fish = NA,
+        num_patches = 20,
+        move_matrix = move_matrix_temp
+      ) %>% mutate(timing = "after movement")
+    
+    pop_temp <- rbind(pop_before_movement,pop_after_movement) %>% 
+      mutate(adult_movement = adult_movement_vector[move_index])
+    
+    dens_dependent_example <- rbind(dens_dependent_example, pop_temp)
+  }
+  dens_dependent_example %>% group_by(adult_movement,patch, timing) %>% 
   summarize_at(c("numbers","biomass","ssb"), sum) %>% 
   ungroup() %>% 
   filter(patch <= 10) %>% 
   ggplot(aes(x = as.factor(patch), y = ssb, fill = fct_relevel(timing, "before movement", "after movement")))+
   geom_col(position = "dodge")+
-  labs(fill = "", x = "patch")+
+  labs(fill = "", x = "patch", title = paste0("density movement modifier: ", dens_modifier_vector[dens_index]))+
   theme_classic()+
-  facet_wrap(~rho)
+  facet_wrap(~adult_movement)
+  
+  ggsave(sprintf("density-dependent movement with modifier equal to %5.1f.png",dens_modifier_vector[dens_index]))
+}
 
 ```
 
