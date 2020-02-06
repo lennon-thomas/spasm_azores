@@ -122,3 +122,172 @@ ggplot(movement_table, aes(x = dist, y = prob_move, color = as.factor(adult_move
   labs(y = "Probability of moving", x = "Distance to patch", color = "Value of adult_movement", title = "Movement away from patch 410")
 ```
 
+```{r add plot of ssb before and after movement, include = F}
+pop_before_movement <- pop %>% 
+  filter(year == 2, age > 4) %>% 
+  mutate(timing = "before movement")
+
+pop_after_movement <-
+  move_fish_az(
+    here_pop = pop_before_movement,
+    fish = NA,
+    num_patches = 20,
+    move_matrix = adult_move_matrix_independent
+  ) %>% mutate(timing = "after movement")
+
+
+rbind(pop_before_movement,pop_after_movement) %>% 
+  group_by(patch, timing) %>% 
+  summarize_at(c("numbers","biomass","ssb"), sum) %>% 
+  ungroup() %>% 
+  filter(patch <= 10) %>% 
+  ggplot(aes(x = as.factor(patch), y = ssb, fill = fct_relevel(timing, "before movement", "after movement")))+
+  geom_col(position = "dodge")+
+  labs(fill = "", x = "patch")+
+  theme_classic()
+
+``` 
+
+### How does this play out across all patches?
+
+We can vary the value of `adult_movement` to see how it affects the system on a whole.
+
+```{r same as above, but now loop through multiple values of }
+
+ssb_movement_example <- tibble()
+
+ssb_movement_vector <- c(50,100,500,1000)
+
+for(m in 1:length(ssb_movement_vector)){
+  pop_before_movement <- pop %>% 
+  filter(year == 2, age > 4) %>% 
+  mutate(timing = "before movement")
+  
+  
+  move_matrix_temp <- adult_distance %>%
+  left_join(cell_lookup, by = c("to" = "cell_no"))%>%
+  dplyr::mutate(movement = ifelse(is.na(dist), NA, ifelse(
+    is.finite(dnorm(dist, 0, ssb_movement_vector[m])),
+    dnorm(dist, 0, ssb_movement_vector[m]),
+    1
+  )))%>%
+  group_by(from) %>%
+  dplyr::mutate(prob_move = movement / sum(movement, na.rm = TRUE)) %>%
+  ungroup() %>%
+  dplyr::select(from, to, prob_move) %>%
+  spread(to, prob_move) %>%
+  dplyr::select(-from) %>%
+  as.matrix()
+
+move_matrix_temp[is.na(move_matrix_temp)] <- 0
+
+pop_after_movement <-
+  move_fish_az(
+    here_pop = pop_before_movement,
+    fish = NA,
+    num_patches = 20,
+    move_matrix = move_matrix_temp
+  ) %>% mutate(timing = "after movement")
+
+pop_temp <- rbind(pop_before_movement,pop_after_movement) %>% 
+  mutate(adult_movement = ssb_movement_vector[m])
+
+ssb_movement_example <- rbind(ssb_movement_example, pop_temp)
+}
+
+ssb_movement_example %>% group_by(adult_movement,patch, timing) %>% 
+  summarize_at(c("numbers","biomass","ssb"), sum) %>% 
+  ungroup() %>% 
+  filter(patch <= 10) %>% 
+  ggplot(aes(x = as.factor(patch), y = ssb, fill = fct_relevel(timing, "before movement", "after movement")))+
+  geom_col(position = "dodge")+
+  labs(fill = "", x = "patch")+
+  theme_classic()+
+  facet_wrap(~adult_movement)
+
+#ggsave("ssb_with_movement_example.png")
+
+```
+
+This figure shows the ssb for each patch before and after movement for four different values of adult_movement: 50, 100, 500, 1000. There is very little redistribution when it equals 50 (near the minimum distance between patches) and almost completely even redistribution when it hits 1000 (greater than twice the max distance between patches).
+
+
+## Parameter: density_movement_modifier
+
+Density-dependent movement allows the density of fish in a given patch to modulate the rate at which fish leave that patch. The inuition here is that as density increases ("more crowded"), fish will be more likely to move away from that patch in search of less competition elsewhere. Density-dependent movement introduces two additional variables/factors:
+
+* `depletion`: The ssb of the patch in that year relative to ssb0. Ranges from 0 (fully depleted) to values above 1 (more ssb than in year 0). Not explicitly defined in parameter space, but calculated internally by the model.
+* `density_movement_modifier`: The degree to which fish are "sensitive" to crowding. As.....
+
+```{r lets figure this out for density-dependent-movement}
+dens_dependent_example <- tibble()
+
+dens_modifier_vector <- c(0,0.5,0.99)
+
+adult_movement <- 100
+
+for(index in 1:length(dens_modifier_vector)){
+
+  pop_before_movement <- pop %>% 
+  filter(year == 2, age > 4) %>% 
+  mutate(timing = "before movement")
+  
+  slope <-
+  adult_movement - (adult_movement * dens_modifier_vector[index])
+
+how_crowded <- pop %>%
+  group_by(patch) %>%
+  summarise(ssb = sum(ssb, na.rm = TRUE)) %>%
+  dplyr::arrange(patch) %>%
+  mutate(depletion = ssb / ssb0) %>%
+  mutate(move_rate = pmin(
+    adult_movement,
+    slope * depletion + (adult_movement * dens_modifier_vector[index])
+  )) %>%
+  dplyr::select(patch, move_rate) %>% 
+  left_join(cell_lookup) %>%
+  dplyr::select(cell_no, move_rate)
+
+move_matrix_temp <- adult_distance %>%
+  left_join(how_crowded, by = c("from" = "cell_no")) %>%
+  dplyr::mutate(movement = ifelse(is.na(dist), NA, ifelse(
+    is.finite(dnorm(dist, 0, move_rate)),
+    dnorm(dist, 0, move_rate),
+    1
+  )))  %>%
+  group_by(from) %>%
+  dplyr::mutate(prob_move = movement / sum(movement,na.rm = TRUE))%>%
+  ungroup()%>%
+  dplyr::select(from, to, prob_move) %>%
+  spread(to, prob_move) %>%
+  dplyr::select(-from) %>%
+    as.matrix()
+ 
+move_matrix_temp[is.na(move_matrix_temp)] <- 0
+
+pop_after_movement <-
+  move_fish_az(
+    here_pop = pop_before_movement,
+    fish = NA,
+    num_patches = 20,
+    move_matrix = move_matrix_temp
+  ) %>% mutate(timing = "after movement")
+
+pop_temp <- rbind(pop_before_movement,pop_after_movement) %>% 
+  mutate(rho = dens_modifier_vector[index])
+
+dens_dependent_example <- rbind(dens_dependent_example, pop_temp)
+}
+
+dens_dependent_example %>%  group_by(rho,patch, timing) %>% 
+  summarize_at(c("numbers","biomass","ssb"), sum) %>% 
+  ungroup() %>% 
+  filter(patch <= 10) %>% 
+  ggplot(aes(x = as.factor(patch), y = ssb, fill = fct_relevel(timing, "before movement", "after movement")))+
+  geom_col(position = "dodge")+
+  labs(fill = "", x = "patch")+
+  theme_classic()+
+  facet_wrap(~rho)
+
+```
+
