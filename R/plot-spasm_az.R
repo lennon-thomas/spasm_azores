@@ -59,13 +59,18 @@ out <- sim %>%
   summarise(
     Effort = sum(effort),
     Profits = sum(profits),
-    Biomass = sum(biomass),
-    Catch = sum(biomass_caught)
+    Biomass = sum(biomass,na.rm=TRUE),
+    Catch = sum(biomass_caught),
+    B0 =unique(b0)
   ) %>%
  ungroup() %>%
   mutate(`Profit Per Unit Effort` = Profits / Effort,
-         f = Catch/Biomass) %>%
+       #  f = Catch/Biomass,
+         B_ratio = Biomass/B0) %>%
+        # f2=Effort*fleet$q) %>%
+dplyr:: select(-c(B0,Biomass)) %>%
   gather(metric, value,-year) %>%
+
   ggplot(aes(year, value)) +
   theme_bw() +
   geom_vline(aes(xintercept = mpayear),
@@ -74,7 +79,7 @@ out <- sim %>%
   geom_line(show.legend = F, size = 1.5) +
   facet_wrap( ~ metric, scales = "free_y") +
   labs(x = "Year",  y = "", caption = "Vertical line shows year MPA put in place",
-       title = paste("MPA Size:",scales::percent(mpasize),"         L =",L, "         cost_intercept =",cost_intercept)) +
+       title = paste("MPA Size:",scales::percent(mpasize),"         L =",L, "    cost_intercept =",cost_intercept,"price=",fish$price)) +
   theme_bw()
 
 }

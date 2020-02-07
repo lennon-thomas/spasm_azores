@@ -32,7 +32,7 @@ data<-read.csv(paste0(boxdir,"jabba_b_and_f.csv")) %>%
 
 biomass<-sum(pops$ssb,na.rm = TRUE)
 
-ggplot(data,aes(y=d_effort,x=B)) +
+ggplot(data,aes(y=effort,x=B)) +
   geom_point() +
   geom_smooth(method='lm',fullrange=TRUE) +
   theme_bw() +
@@ -41,12 +41,12 @@ ggplot(data,aes(y=d_effort,x=B)) +
 
 
 
-lm_effort<-lm(data$f~data$B)
+lm_effort<-lm(data$effort~data$B)
 intercept<-lm_effort$coefficients[[1]]
 slope<-lm_effort$coefficients[[2]]
 #y=a+bX
 
 new_effort<-intercept + slope * biomass
-new_effort<-new_effort / fleet$q
+#new_effort<-new_effort / fleet$q
 return(new_effort)
 }

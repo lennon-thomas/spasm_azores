@@ -102,7 +102,8 @@ sim_fishery_az<-
         effort = 0,
         f = 0,
         mpa = F,
-        cost = NA
+        cost = NA,
+        L= NA
       ) %>%
       dplyr::as_data_frame() %>%
       dplyr::arrange(year, patch, age)
@@ -213,54 +214,31 @@ sim_fishery_az<-
 
 # Generate timeseries of cost, price, and q -------------------------------
 
-    price_series <-
-      generate_timeseries(
-        fish$price,
-        fish$price_cv,
-        fish$price_ac,
-        fish$price_slope,
-        time = sim_years
-      )
+    price_series <- rep(fish$price,sim_years)
+   
 
-    q <-
-      generate_timeseries(
-        fleet$q,
-        fleet$q_cv,
-        fleet$q_ac,
-        fleet$q_slope,
-        time = sim_years
-      )
+    q <- rep(fleet$q, sim_years)
+  
+  
 
-    if (length(q) == 1) {
-      q <- rep(q, sim_years)
-    }
-    if (length(price_series) == 1) {
-      price_series <- rep(price_series, sim_years)
-    }
+   
 
 # This is where costs should be added
 
-    cost_series <-
-      generate_timeseries(
-        fleet$cost_intercept,
-        fleet$cost_cv,
-        fleet$cost_ac,
-        fleet$cost_slope,
-        time = sim_years
-      )
-
+    cost_series <- rep(fleet$cost_intercept,sim_years)
+ 
 
     price_frame <-
       dplyr::data_frame(year = 1:sim_years, price = price_series)
 
-    cost_frame <- dplyr::data_frame(year = 1:sim_years, cost = cost_series)
+   cost_frame <- dplyr::data_frame(year = 1:sim_years, cost_intercept = cost_series)
 
 # Join new cost and  pop frame --------------------------------------------
 
     pop <- pop %>%
       dplyr::select(-cost) %>%
-      dplyr::left_join(cost_frame, by = "year") %>%
-      dplyr::left_join(price_frame, by = "year")
+      dplyr::left_join(price_frame, by = "year") %>%
+      dplyr:: left_join(cost_frame, by = "year")
 
 
 
@@ -304,27 +282,26 @@ sim_fishery_az<-
 
 # Add distance to shore to cost -------------------------------------------
 # distance is in kilometers
-     # distance_to_shore <- shore_dist[cell_lookup$cell_no, ] %>%
-     #   dplyr::select(c(2, 3)) %>%
-     #   mutate(patch = seq(1:num_patches))
-     # 
-     # colnames(distance_to_shore) <- c("cell_no", "distance", "patch")
-     # distance_to_shore$distance[distance_to_shore$distance==0]<-20
+   #  distance_to_shore <- shore_dist[cell_lookup$cell_no, ] %>%
+    #   dplyr::select(c(2, 3)) %>%
+     #  mutate(patch = seq(1:num_patches))
+
+     #colnames(distance_to_shore) <- c("cell_no", "distance", "patch")
+     #distance_to_shore$distance[distance_to_shore$distance==0]<-20
 
   #  pop <- pop %>%
     #   dplyr::left_join(distance_to_shore, by = ("patch"))
     
-      cost_frame <-
-         expand.grid(year = 1:sim_years, patch = 1:num_patches) %>%
-         dplyr::as_data_frame() %>%
-         dplyr::left_join(cost_frame, by = "year")
-       #  dplyr::left_join(distance_to_shore, by = "patch")
+     # cost_frame <-expand.grid(year = 1:sim_years, patch = 1:num_patches,cost_intercept = cost_series) %>%
+      #   dplyr::as_data_frame() 
+       #  dplyr::left_join(distance_to_shore, by = "patch") %>%
+        # dplyr::mutate(cost_slope = fleet$cost_slope,
+         #              cost = cost_intercept + cost_slop * distance)
 
 
 
-       pop <- pop %>%
-         dplyr::select(-cost) %>%
-         dplyr::left_join(cost_frame, by = c("patch", "year"))
+       #pop <- pop %>%
+        # dplyr::left_join(cost_frame, by = c("patch", "year"))
 
 
 
@@ -486,7 +463,7 @@ sim_fishery_az<-
        pop$numbers[is.na(pop$numbers)] <- 0
 
   # This should move adults between adult patches (with or without density dependence)
-  # Currently not working      
+     
        mat_age_class<-length(unique(pop$age[pop$age>fish$age_mature])) 
        
       # adult_move_matrix<-   do.call("rbind", replicate(mat_age_class, adult_move_matrix, simplify = FALSE))
@@ -539,7 +516,7 @@ if (constant_L == FALSE){
 
      
 # Find optimal profit derivative (p as a function of E for this timestep) Should be 19007.2     
-   opt_dev_profit<-optimize(find_L_az, interval = c(1,1e6), maximum = FALSE,
+   opt_dev_profit<-optimize(find_L_az, interval = c(1e3,8e4), maximum = FALSE,
                             pops = pop %>% filter(year == y),
                             cell_lookup = cell_lookup,
                             year = y,
@@ -555,7 +532,25 @@ if (constant_L == FALSE){
                             price = fish$price,
                             q = fleet$q[1])$minimum
    print(paste0(opt_dev_profit," year =",y))
-    
+ 
+  sse<-find_L_az(dev_profit = opt_dev_profit,
+                 pops = pop %>% filter(year == y),
+                 cell_lookup = cell_lookup,
+                 year = y,
+                 fish = fish,
+                 burn_years = burn_years,
+                 total_effort = effort[y],
+                 fleet = fleet,
+                 num_patches = num_patches,
+                 
+                 beta = fleet$beta,
+                 cost_slope = fleet$cost_slope,
+                 cost_intercept = fleet$cost_intercept, #853.3343
+                 price = fish$price,
+                 q = fleet$q[1])
+
+print(paste0("sse =" ,sse))
+      
       pop[now_year, "effort"] <-
         distribute_fleet_az(
           dev_profit = opt_dev_profit,
@@ -572,6 +567,7 @@ if (constant_L == FALSE){
         )
 }
  
+
   if (constant_L == TRUE) {      
     pop[now_year, "effort"] <-
       determine_and_distribute_effort_az( L= fleet$L,
@@ -587,7 +583,9 @@ if (constant_L == FALSE){
 
   }       
         pop[now_year, "f"] <-
-        pop[now_year, "effort"] * fleet$q
+    #    pop[now_year, "effort"] 
+      pop[now_year, "effort"] * fleet$q
+        pop[now_year, "L"] <-opt_dev_profit
 
 }
 # Growth and Mortality ----------------------------------------------------
@@ -673,7 +671,7 @@ if (constant_L == FALSE){
       }
 
 # End of one year ---------------------------------------------------------
-
+print(y)
 
     }
    # rec_mat <-

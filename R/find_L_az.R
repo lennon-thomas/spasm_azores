@@ -19,19 +19,9 @@ find_L_az<-
  
     
     
-    total_ssb<- sum(pops$ssb) 
-    distance<-unique(pops$distance)
-   # test_profit<-0.15*total_ssb*price
     
-  #  total_avg_cost<-(price*total_effort*q*total_ssb-test_profit)/(total_effort^beta)
-    
-   # cost_intercept<-total_avg_cost-cost_slope*mean(distance)
-  #  cost_intercept<- 853.3343
-    total_avg_cost<-cost_intercept + cost_slope*mean(distance)
-    
-    total_profit<-(price*q*total_effort*total_ssb)-((total_avg_cost*(total_effort^beta)))
   #  dev_profit<-(price*q*total_ssb)-beta*total_avg_cost*total_effort^(beta-1)
-    effort<-((price*q* total_ssb-dev_profit)/(beta*total_avg_cost))^(1/(beta-1))
+  #  effort<-((price*q* total_ssb-dev_profit)/(beta*total_avg_cost))^(1/(beta-1))
     
     pop_summary<- pops %>%
       group_by (patch) %>%

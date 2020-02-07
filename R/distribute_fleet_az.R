@@ -31,19 +31,22 @@ distribute_fleet_az<-
     q = fleet$q[1]
   )
   {
+ 
+    total_ssb<- sum(pops$ssb,na.rm = TRUE) 
+ 
+
     
-    total_ssb<- sum(pops$ssb) 
-    distance<-unique(pops$distance)
-    total_avg_cost<-cost_intercept + cost_slope*mean(distance)
     
-    total_profit<-(price*q*total_effort*total_ssb)-((total_avg_cost*(total_effort^beta)))
+  #  total_avg_cost<-cost_intercept + cost_slope*mean(dist)
     
-    effort<-((price*q* total_ssb-dev_profit)/(beta*total_avg_cost))^(1/(beta-1))
+   # total_profit<-(price*q*total_effort*total_ssb)-((total_avg_cost*(total_effort^beta)))
+    
+  #  effort<-((price*q* total_ssb-dev_profit)/(beta*total_avg_cost))^(1/(beta-1))
     
     pop_summary<- pops %>%
       group_by (patch) %>%
       summarise (patch_ssb = sum(ssb,na.rm = TRUE),
-                 distance = unique (distance)) %>%
+                 distance = unique(distance)) %>%
       ungroup() %>%
       mutate( L = dev_profit/num_patches,
               patch_cost = cost_intercept + cost_slope * distance,
@@ -54,10 +57,14 @@ distribute_fleet_az<-
     pop_summary$p_effort<-ifelse(is.na(pop_summary$p_effort),0,pop_summary$p_effort)
     pop_summary$p_f<-ifelse(is.na( pop_summary$p_f),0, pop_summary$p_f)
 
+#  total_avg_costs<-mean(pop_summary$patch_cost) 
+ # total_profit<-sum(profit)
+  #effort<-sum(p_effort)
   # we assume beta equals 1.3 which implies increasing effort, increases the unit of cost   
     pops$effort<-pop_summary$p_effort %>%
       rep(each = length(unique(pops$age)))
-    pops$effort[pops$mpa==TRUE]<-0
+   
+     pops$effort[pops$mpa==TRUE]<-0
     
 return (pops$effort)
   }

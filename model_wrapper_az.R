@@ -81,7 +81,7 @@ fish <-
     larval_movement = 2000,
     density_dependence_form = 2,
     density_movement_modifier =  1,
-    price = 14.5*1000, # biomass is in units of metric tons
+    price = 14.5*100, # biomass is in units of metric tons
     price_cv = 0,
     price_ac = 0,
     price_slope =  0.0001
@@ -91,7 +91,7 @@ fish <-
 fleet <- create_fleet_az(
   fish = fish,
   q = 0.014, # Get this from JABBA output
-  cost_intercept =3000,#853.3343,#440.6,
+  cost_intercept =5000,#853.3343,#440.6,
   #cost_factor = 1, #How many X bigger are capital costs relative to cost of fuel (i.e. how much is distance from shore going to matter)
   # distance_factor<-5, # This should be how much it costs to go each km (~fuel cost/km)   cost_cv =  0,
   cost_ac = 0,
@@ -123,10 +123,10 @@ system.time(simple <- sim_fishery_az(
   fish = fish,
   fleet = fleet,
   manager = create_manager(mpa_size = 0.5,
-                           year_mpa = 20),
+                           year_mpa = 75),
   num_patches = num_patches,
-  sim_years = 30,
-  burn_years = 10,
+  sim_years = 50,
+  burn_years = 50,
   time_step = fish$time_step,
   #est_msy = FALSE,
   random_mpas =TRUE,
@@ -142,7 +142,7 @@ system.time(simple <- sim_fishery_az(
   hab_qual = hab_qual,
   rec_driver = "stochastic",
   estimate_costs = FALSE ,
-  constant_L = FALSE))#constant annual value of effort to be distributed to all patches
+  constant_L = TRUE))#constant annual value of effort to be distributed to all patches
 
 #View(simple)
 #plot_spasm_az(simple, type = "patch", font_size = 12, L=fleet$L)
@@ -155,6 +155,22 @@ sim_sum<-simple %>%
             profits=sum(profits),
             mpa = unique(mpa)
             )
+
+sim_sum<-simple %>%
+  filter(year>burn_years+5) %>%
+  group_by(year,cell_no) %>%
+  summarise(biomass = sum(biomass),
+            biomass_caught = sum(biomass_caught),
+            effort = unique(effort),
+            f = unique(f),
+            profits=sum(profits),
+            mpa = unique(mpa),
+            b0 = unique(b0),
+            distance = unique(distance),
+  ) %>%
+  ungroup() %>%
+  mutate(b_ratio = biomass/b0)  %>%
+  mutate(cost_slope = fleet$cost_slope)
 
 plot_spasm_az(sim_sum, type = "totals", font_size = 12,L=fleet$L)
 
