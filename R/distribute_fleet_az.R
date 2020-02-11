@@ -32,40 +32,42 @@ distribute_fleet_az<-
   )
   {
  
-    total_ssb<- sum(pops$ssb,na.rm = TRUE) 
+  #  total_ssb<- sum(pops$ssb,na.rm = TRUE) 
  
 
-    
+   
     
   #  total_avg_cost<-cost_intercept + cost_slope*mean(dist)
     
    # total_profit<-(price*q*total_effort*total_ssb)-((total_avg_cost*(total_effort^beta)))
     
   #  effort<-((price*q* total_ssb-dev_profit)/(beta*total_avg_cost))^(1/(beta-1))
-    
+#browser()
     pop_summary<- pops %>%
       group_by (patch) %>%
-      summarise (patch_ssb = sum(ssb,na.rm = TRUE),
+      summarise (patch_biomass = sum(biomass,na.rm = TRUE),
                  distance = unique(distance)) %>%
       ungroup() %>%
-      mutate( L = dev_profit/num_patches,
-              patch_cost = cost_intercept + cost_slope * distance,
-              p_effort = ((price * q * patch_ssb- L)/(beta * patch_cost))^(1/(beta-1)),
-              p_f = p_effort *q)
-    
-    pop_summary$p_effort<-ifelse(pop_summary$p_effort<0,0,pop_summary$p_effort)
-    pop_summary$p_effort<-ifelse(is.na(pop_summary$p_effort),0,pop_summary$p_effort)
-    pop_summary$p_f<-ifelse(is.na( pop_summary$p_f),0, pop_summary$p_f)
+      mutate(patch_cost = cost_intercept + cost_slope * distance,
+              p_f = 1-(patch_cost/((fish$price-dev_profit)*patch_biomass))) %>%
+      mutate(p_f=replace(p_f,p_f<0,0)) %>% mutate(p_f=replace(p_f,p_f>1,1)) 
+   
 
+    
+    
+  #  pop_summary$p_effort<-ifelse(pop_summary$p_effort<0,0,pop_summary$p_effort)
+  #  pop_summary$p_effort<-ifelse(is.na(pop_summary$p_effort),0,pop_summary$p_effort)
+ #   pop_summary$p_f<-ifelse(is.na( pop_summary$p_f),0, pop_summary$p_f)
+   # pop_summary$p_f<-min(max(0,pop_summary$p_f),1)
 #  total_avg_costs<-mean(pop_summary$patch_cost) 
  # total_profit<-sum(profit)
   #effort<-sum(p_effort)
   # we assume beta equals 1.3 which implies increasing effort, increases the unit of cost   
-    pops$effort<-pop_summary$p_effort %>%
+    pops$p_f<-pop_summary$p_f%>%
       rep(each = length(unique(pops$age)))
    
-     pops$effort[pops$mpa==TRUE]<-0
+     pops$p_f[pops$mpa==TRUE]<-0
     
-return (pops$effort)
+return (pops$p_f)
   }
 

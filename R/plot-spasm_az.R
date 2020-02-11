@@ -33,12 +33,12 @@ if (type == "patch"){
   out <- sim %>%
     group_by(year, patch) %>%
     summarise(
-      Effort = sum(effort),
+      F = sum(f)/15,
       Profits = sum(profits),
       Biomass = sum(biomass)
     ) %>%
     ungroup() %>%
-    mutate(`Profit Per Unit Effort` = Profits / Effort) %>%
+    mutate(`Profit Per Unit Effort` = Profits /F) %>%
     gather(metric, value,-year, -patch) %>%
     ggplot(aes(year, value, color = factor(patch))) +
     geom_vline(aes(xintercept = mpayear),
@@ -57,15 +57,15 @@ if (type == "totals"){
 out <- sim %>%
   group_by(year) %>%
   summarise(
-    Effort = sum(effort),
+    F = sum(f),
     Profits = sum(profits),
     Biomass = sum(biomass,na.rm=TRUE),
     Catch = sum(biomass_caught),
-    B0 =unique(b0)
+    B0 =unique(b0),
   ) %>%
  ungroup() %>%
-  mutate(`Profit Per Unit Effort` = Profits / Effort,
-       #  f = Catch/Biomass,
+  mutate(`Profit Per Unit Effort` = Profits / (Catch/Biomass),
+       #    f = Catch/Biomass,
          B_ratio = Biomass/B0) %>%
         # f2=Effort*fleet$q) %>%
 dplyr:: select(-c(B0,Biomass)) %>%
@@ -73,13 +73,13 @@ dplyr:: select(-c(B0,Biomass)) %>%
 
   ggplot(aes(year, value)) +
   theme_bw() +
-  geom_vline(aes(xintercept = mpayear),
-             linetype = 2,
-             color = "red") +
+ # geom_vline(aes(xintercept = mpayear),
+  #           linetype = 2,
+   #          color = "red") +
   geom_line(show.legend = F, size = 1.5) +
   facet_wrap( ~ metric, scales = "free_y") +
   labs(x = "Year",  y = "", caption = "Vertical line shows year MPA put in place",
-       title = paste("MPA Size:",scales::percent(mpasize),"         L =",L, "    cost_intercept =",cost_intercept,"price=",fish$price)) +
+       title = paste("MPA Size:",scales::percent(mpasize))) +
   theme_bw()
 
 }

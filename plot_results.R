@@ -14,14 +14,14 @@ mpa_results<-read.csv(paste0(boxdir,runname,"/mpa_results.csv"))
 
 area<-raster(paste0(boxdir,runname,"all_habitat.tif"))
 
-sim_sum<-read.csv(paste0(boxdir,runname,"/sim_sum.csv"))
+sim_sum<-read.csv(paste0(boxdir,runname,"/sim_sum_mpa_scen.csv"))
 
 area[unique(sim_sum$cell_no)]<-unique(sim_sum$cell_no)
 # MPA coverage ------------------------------------------------------------
 
 
 mpa_results<-mpa_results %>%
-  select(mpa_scen,mpa_implement,Biomass,Catch,Profits) %>%
+  dplyr::select(mpa_scen,mpa_implement,Biomass,Catch,Profits) %>%
   # group_by(mpa_scen,mpa_implement) %>%
   gather(key="attribute",value="Value",Biomass,Catch,Profits) %>%
   spread(mpa_implement,Value) %>%
@@ -49,8 +49,9 @@ ggplot(mpa_results)+
 
 #variable<-c("B_ratio","Catch","Effort","f","Profit Per Unit Effort","Profits")
 land = raster(paste0(boxdir, "raster_output_4k/land_proj.tif"))
-
-
+coord<-xyFromCell(goraz,cell_no)
+goraz_df<-as.data.frame(goraz)
+colnames(coord)<-c("Long","Lat")
 
 year_seq = seq(from = min(sim_sum$year),
                to = max(sim_sum$year),
@@ -62,24 +63,36 @@ t<-xyFromCell(effort_map,cell_no)
 colnames(t)<-c("Long","Lat")
 cell_lookup<-cbind(cell_lookup,t)
 
-sim_sum<-merge(sim_sum,cell_lookup)
+sim_sum<-merge(sim_sum,cell_lookup,all.x=TRUE)
 
-fish_equil_yr<-mpa_year-1
-mpa_equil_yr<-sim_year
+fish_equil_yr<-70
+mpa_equil_yr<-99
 
 biomass_map<-area
 effort_map[]<-NA
 biomass_map[]<-NA
 
+cell_lookup<-cell_lookup %>%
+  mutate(c_i = fleet$cost_intercept + fleet$cost_slope*distance)
 
+ggplot(data=cell_lookup,aes(x=Long,y=Lat,fill = c_i)) +
+  geom_raster() +
+  theme_bw()+
+  scale_fill_viridis(direction=-1) +
+  ggtitle("avg. cost per patch (c_i)")
+  facet_wrap (~year) +
+  scale_fill_viridis()
+
+effort_map[data$cell_no]<-data$effort
 data<-sim_sum %>%
-  filter(year == fish_equil_yr | mpa_equil_yr) 
+  filter(year == mpa_equil_yr) 
+plot(data,main="pre MPA fishing estimated fishing effort")
 
-
-ggplot(data=data,aes(x=x,y=y,fill = total_effort)) +
+ggplot(data=data,aes(x=Long,y=Lat,fill = biomass)) +
   geom_raster() +
   theme_bw() +
-  facet_wrap (~mpa)
+  facet_wrap (~year) +
+  scale_fill_viridis()
 
 
 
@@ -352,8 +365,18 @@ show_landscape(results, xlab = "Lat",
 
 
 plot(hab_qual_map)
+     ))
 
 
 vms_cells<-Which(!is.na(vms),cells=TRUE)
 
+sp::plot(effort_map,xlim=c(0,9e+05),ylim=c(3718070.1,4400000),colNA="lightblue", border = grey(0.6))
 
+
+ggplot(data=cell_lookup,aes(x=Long,y=Lat,fill = c_i)) +
+  geom_raster() +
+  theme_bw()+
+  scale_fill_viridis(direction=-1) +
+  ggtitle("avg. cost per patch (c_i)")
+facet_wrap (~year) +
+  scale_fill_viridis()

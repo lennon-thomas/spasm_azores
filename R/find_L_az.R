@@ -25,19 +25,22 @@ find_L_az<-
     
     pop_summary<- pops %>%
       group_by (patch) %>%
-      summarise (patch_ssb = sum(ssb,na.rm = TRUE),
-                 distance = unique (distance)) %>%
+      summarise (patch_biomass = sum(biomass,na.rm = TRUE),
+                 distance = unique(distance)) %>%
       ungroup() %>%
-      mutate( L = dev_profit/num_patches,
-              patch_cost = cost_intercept + cost_slope * distance,
-              p_effort = ((price * q * patch_ssb - L)/(beta * patch_cost))^(1/(beta-1)),
-              p_f = p_effort *q)
+      mutate(patch_cost = cost_intercept + cost_slope * distance,
+             p_f = 1-(patch_cost/(price-L)*patch_biomass))
     
-    pop_summary$p_effort<-ifelse(pop_summary$p_effort<0,0,pop_summary$p_effort)
-    
+    #  pop_summary$p_effort<-ifelse(pop_summary$p_effort<0,0,pop_summary$p_effort)
+    #  pop_summary$p_effort<-ifelse(is.na(pop_summary$p_effort),0,pop_summary$p_effort)
     pop_summary$p_f<-ifelse(is.na( pop_summary$p_f),0, pop_summary$p_f)
     
-    total_estimated_effort<-sum(pop_summary$p_effort,na.rm = TRUE)
+    #  total_avg_costs<-mean(pop_summary$patch_cost) 
+    # total_profit<-sum(profi
+    
+   
+    
+    pop_summary$p_f<-ifelse(is.na( pop_summary$p_f),0, pop_summary$p_f)
     
     sse<-(total_effort-total_estimated_effort)^2
     

@@ -47,12 +47,12 @@ area[cell_lookup$cell_no]<-cell_lookup$hab_qual
 num_patches<-nrow(cell_lookup)
 
   adult_movement<-200
-  cost_intercept<-150#4950321/num_patches/15#40000
-  cost_slope<-0.1
-  L<-1e+04#-0.8*14500*6646/1177#500000 #0.00005
-  sim_years<-100
-  year_mpa<-75
-  burn_years<-1
+  cost_intercept<-1000000#150#4950321/num_patches/15#40000
+  cost_slope<-0
+#  L<-1e+04#-0.8*14500*6646/1177#500000 #0.00005
+  sim_years<-50
+  year_mpa<-200
+  burn_years<-5
   price<-14500
   
 # Biological functions ----------------------------------------------------
@@ -71,7 +71,7 @@ num_patches<-nrow(cell_lookup)
       adult_movement = adult_movement,
       larval_movement = 200,
       density_dependence_form = 2,
-      density_movement_modifier =  0.5,
+      density_movement_modifier =  1,
       price =  price#14.5*1000, # biomass is in units of metric tons
     )
 
@@ -87,7 +87,6 @@ num_patches<-nrow(cell_lookup)
     initial_effort = 200, # This is something we can take out depending on which equations we are using
     delta = 2,#steepness of selectivity curve 
     mpa_reaction = "leave",#"leave", #"leave"
-    L = 	L,
     profit_lags=10) # This is how sensitive fleet is to changes in profit. Do the respond on annual basis vs. 5 year average.)
   
   #option to fish all ages
@@ -121,27 +120,30 @@ num_patches<-nrow(cell_lookup)
   #View(simple)
   #plot_spasm_az(simple, type = "patch", font_size = 12, L=fleet$L)
   sim_sum<-simple %>%
-   filter(year>50) %>%
+  # filter(year<50) %>%
     group_by(year,cell_no) %>%
     summarise(biomass = sum(biomass),
               biomass_caught = sum(biomass_caught),
-              effort = unique(effort),
+            #  effort = unique(effort),
               f = unique(f),
               profits=sum(profits),
               mpa = unique(mpa),
               b0 = unique(b0),
-              distance = unique(distance),
-              L= unique(L)
+              distance = unique(distance)
+            #  L= unique(L)
               ) %>%
     ungroup() %>%
     mutate(b_ratio = biomass/b0)  %>%
     mutate(cost_slope = fleet$cost_slope)
    # filter(!year==burn_years + 1)
-  write.csv(sim_sum,paste0(boxdir,runname,"/sim_sum.csv"))
+ # write.csv(sim_sum,paste0(boxdir,runname,"/sim_sum.csv"))
 
-  plot_spasm_az(sim_sum, type = "totals", font_size = 12,sim_sum$L)
-
-  plot_spasm_az(simple,type="patch",font_size=12,L=mean(sim_sum$L))
+  plot_spasm_az(sim_sum, type = "totals", font_size = 12)
+test<-unique(cell_lookup$cell_no)[1:10]
+short<-simple %>%
+  filter(cell_no %in% test)
+  
+ plot_spasm_az(short,type="patch",font_size=12)
 
 # end wrapper -------------------------------------------------------------
 
