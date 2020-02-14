@@ -47,6 +47,6 @@ slope<-lm_effort$coefficients[[2]]
 #y=a+bX
 
 new_f<-intercept + slope * biomass
-#new_effort<-new_effort / fleet$q
-return(new_f)
+new_effort<-new_f / fleet$q
+return(new_effort)
 }

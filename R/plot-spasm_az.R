@@ -17,9 +17,9 @@
 #'
 plot_spasm_az <- function(sim, type = "patch", font_size = 14, L=fleet$L, cost_intercept = fleet$cost_intercept){
 
-mpayear <- sim$year[which(sim$mpa == TRUE)[1]]
+mpayear <- year_mpa#sim$year[which(sim$mpa == TRUE)[1]]
 
-mpasize <- mean(sim$mpa[sim$year > mpayear])
+mpasize <- mpasize#mean(sim$mpa[sim$year > mpayear])
 
 mpasize <- ifelse(is.na(mpasize), 0, mpasize)
 
@@ -57,10 +57,10 @@ if (type == "totals"){
 out <- sim %>%
   group_by(year) %>%
   summarise(
-    F = sum(f),
-    Profits = sum(profits),
+    f = sum(f)/num_patches,
+    Profits = sum(profits,na.rm=TRUE),
     Biomass = sum(biomass,na.rm=TRUE),
-    Catch = sum(biomass_caught),
+    Catch = sum(biomass_caught,na.rm=TRUE),
     B0 =unique(b0),
   ) %>%
  ungroup() %>%
@@ -68,19 +68,20 @@ out <- sim %>%
        #    f = Catch/Biomass,
          B_ratio = Biomass/B0) %>%
         # f2=Effort*fleet$q) %>%
-dplyr:: select(-c(B0,Biomass)) %>%
+dplyr:: select(-c(B0,Biomass,'Profit Per Unit Effort')) %>%
   gather(metric, value,-year) %>%
 
   ggplot(aes(year, value)) +
   theme_bw() +
- # geom_vline(aes(xintercept = mpayear),
-  #           linetype = 2,
-   #          color = "red") +
+ geom_vline(aes(xintercept = year_mpa),
+             linetype = 2,
+             color = "red") +
   geom_line(show.legend = F, size = 1.5) +
   facet_wrap( ~ metric, scales = "free_y") +
-  labs(x = "Year",  y = "", caption = "Vertical line shows year MPA put in place",
+  labs(x = "Year",  y = "",# caption = "Vertical line shows year MPA put in place",
        title = paste("MPA Size:",scales::percent(mpasize))) +
-  theme_bw()
+  theme_bw()+
+  scale_y_continuous(expand = expand_scale(mult = c(0, 0.7)),limits=c(0,NA))
 
 }
 

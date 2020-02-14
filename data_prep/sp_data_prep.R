@@ -59,14 +59,14 @@ runname<-"raster_output_4k"
 dir.create(paste0(boxdir,runname))
 
 #testing them individually
+goraz[goraz< 0.01]<-NA
+#rs_stack_study_region_combined=stack(EEZ,BLL,goraz,land,juv)
+
 EEZ=raster(paste0(boxdir,"raster_output_4k/azores_EEZ_proj_4k.tif"))
 BLL=raster(paste0(boxdir,"raster_output_4k/BLL_prj.tif"))
 goraz=raster(paste0(boxdir,"raster_output_4k/goraz_mdl_prj.tif"))
 land=raster(paste0(boxdir,"raster_output_4k/land_proj.tif"))
 juv=raster(paste0(boxdir,"raster_output_4k/juv_proj.tif"))
-
-goraz[goraz< 0.01]<-NA
-#rs_stack_study_region_combined=stack(EEZ,BLL,goraz,land,juv)
 
 area(BLL)
 

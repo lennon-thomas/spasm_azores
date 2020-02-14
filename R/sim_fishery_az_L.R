@@ -467,7 +467,9 @@ sim_fishery_az_L<-
           )
 
 # Add MPA -----------------------------------------------------------------
-
+       if(y>burn_years){
+         pop$mpa[pop$patch %in% condor_mpa & pop$year >= y]<-T
+       }
        # make a column indicating what year which patches become MPAs
        if ((y - burn_years) == manager$year_mpa) {
          pop$mpa[pop$patch %in% mpa_locations & pop$year >= y] <- T

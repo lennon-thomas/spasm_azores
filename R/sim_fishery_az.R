@@ -46,7 +46,8 @@ sim_fishery_az<-
            estimate_costs,
            constant_L,
            L,
-           cost_cv = 0) {
+           cost_cv = 0,
+           condor_mpa_cells) {
 # # #
 #   fish = fish
 #   fleet = fleet
@@ -98,7 +99,7 @@ sim_fishery_az<-
         ssb = NA,
         numbers_caught = NA,
         profits = NA,
-     #   effort = 0,
+        effort = 0,
         f = 0,
         mpa = F,
         cost = NA,
@@ -110,7 +111,7 @@ sim_fishery_az<-
     pop<-left_join(pop,cell_lookup, by="patch")
 
    # Creates vector of effort and F per year
-  #  effort <- vector(mode = "double", length = sim_years)
+    effort <- vector(mode = "double", length = sim_years)
 
     f <- vector(mode = "double", length = sim_years)
 
@@ -173,7 +174,7 @@ sim_fishery_az<-
       mpa_locations <-
         (1:num_patches)[0:prop_mpas] #weird zero is in case prop_mpas is zero
     }
-
+#browser()
  #   if (!all(is.na(manager$mpa_locations))){
 
   #    if (prop_mpas > 0){
@@ -242,7 +243,7 @@ sim_fishery_az<-
 
 
 # Distribute R0 and BO by patch -------------------------------------------
-
+#browser()
     # Distribute R0 evenly throughout juvenile patches
     pop$numbers[pop$year == 1 & pop$juve_ad_hab == 1 & pop$age<=fish$age_mature] <- rep(n0_at_age[c(1:(fish$age_mature+1))], length(juve_cells))
 
@@ -341,7 +342,7 @@ sim_fishery_az<-
        group_by(from) %>%
        dplyr::mutate(prob_move = movement / sum(movement, na.rm = TRUE))
 
-
+browser()
      adult_move_matrix <- adult_move_grid %>%
        ungroup() %>%
        dplyr::select(from, to, prob_move) %>%
@@ -478,7 +479,9 @@ sim_fishery_az<-
           )
 
 # Add MPA -----------------------------------------------------------------
-
+        if (y >  burn_years) {
+          pop$mpa[pop$cell_no %in% condor_mpa_cells & pop$year >= y] <- T
+          }
        # make a column indicating what year which patches become MPAs
        if ((y - burn_years) == manager$year_mpa) {
          pop$mpa[pop$patch %in% mpa_locations & pop$year >= y] <- T
@@ -505,7 +508,7 @@ sim_fishery_az<-
 
 if (constant_L == FALSE){
          # This is where total effort is calculated. 'determine effort' was a different previous function used here before
-           f [y] <- determine_effort_az(
+           effort [y] <- determine_effort_az(
            fleet = fleet,
            fish = fish,
            pops = pop[pop$year == y,],
@@ -513,41 +516,41 @@ if (constant_L == FALSE){
         )
         
 
-     
+#browser()     
 # Find optimal profit derivative (p as a function of E for this timestep) Should be 19007.2     
-   # opt_dev_profit<-optimize(find_L_az, interval = c(1e3,8e4), maximum = FALSE,
+   # opt_dev_profit<- L#optimize(find_L_az, interval = c(1e3,8e4), maximum = FALSE,
    #                          pops = pop %>% filter(year == y),
    #                          cell_lookup = cell_lookup,
    #                          year = y,
    #                          fish = fish,
    #                          burn_years = burn_years,
-   #                          total_effort = effort[y],
+   #                          total_effort = f[y],
    #                          fleet = fleet,
    #                          num_patches = num_patches,
-   #                          
+   # 
    #                          beta = fleet$beta,
    #                          cost_slope = fleet$cost_slope,
    #                          cost_intercept = fleet$cost_intercept, #853.3343
    #                          price = fish$price,
    #                          q = fleet$q[1])$minimum
    # print(paste0(opt_dev_profit," year =",y))
-   # 
-  # sse<-find_L_az(dev_profit = opt_dev_profit,
-  #                pops = pop %>% filter(year == y),
-  #                cell_lookup = cell_lookup,
-  #                year = y,
-  #                fish = fish,
-  #                burn_years = burn_years,
-  #                total_effort = effort[y],
-  #                fleet = fleet,
-  #                num_patches = num_patches,
-  #                
-  #                beta = fleet$beta,
-  #                cost_slope = fleet$cost_slope,
-  #                cost_intercept = fleet$cost_intercept, #853.3343
-  #                price = fish$price,
-  #                q = fleet$q[1])
-opt_dev_profit<-fish$price*.1
+# 
+#   sse<-find_L_az(dev_profit = opt_dev_profit,
+#                  pops = pop %>% filter(year == y),
+#                  cell_lookup = cell_lookup,
+#                  year = y,
+#                  fish = fish,
+#                  burn_years = burn_years,
+#                  total_effort = effort[y],
+#                  fleet = fleet,
+#                  num_patches = num_patches,
+# 
+#                  beta = fleet$beta,
+#                  cost_slope = fleet$cost_slope,
+#                  cost_intercept = fleet$cost_intercept, #853.3343
+#                  price = fish$price,
+#                  q = fleet$q[1])
+opt_dev_profit<-L
 #print(paste0("sse =" ,sse))
       
       pop[now_year, "f"] <-
@@ -581,8 +584,8 @@ opt_dev_profit<-fish$price*.1
                                           manager = manager)
 
   }       
-        pop[now_year, "f"] <-
-        pop[now_year, "f"] 
+        pop[now_year, "effort"] <-
+        pop[now_year, "f"] /fleet$q[1]
     #  pop[now_year, "effort"] * fleet$q
        # pop[now_year, "L"] <-opt_dev_profit
 
@@ -632,7 +635,7 @@ opt_dev_profit<-fish$price*.1
           ssb = numbers * ssb_at_age,
           biomass = numbers * weight_at_age,
           biomass_caught = numbers_caught * weight_at_age,
-          profits =(biomass_caught * price) - (patch_age_costs*(log(biomass)-log(biomass-(f*biomass))))
+          profits =(biomass_caught * price) - (patch_age_costs*(log(ssb)-log(ssb-(f*ssb))))
         )
 
 
@@ -666,7 +669,7 @@ opt_dev_profit<-fish$price*.1
           }
 
         model_phase <- "recruit"
-
+       print(paste0("ssb0 =",fish$ssb0))
        # effort[y + 1] <- fleet$initial_effort
       }
 

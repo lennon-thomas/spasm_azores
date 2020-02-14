@@ -53,7 +53,8 @@ area[cell_lookup$cell_no]<-cell_lookup$hab_qual
 num_patches<-nrow(cell_lookup)
 
 adult_movement<-200
-cost_slope<-10
+cost_intercept<-300
+cost_slope<-1
 sim_years<-50
 year_mpa<-75
 burn_years<-1
@@ -81,7 +82,7 @@ fish <-
     cv_len = 0,
     sigma_r = 0.00,
     steepness = 0.8,
-    r0 = 13972.933, #This should correspond to give us the K from best Jabba run during burn years. Still need to create function to solve for this.
+    r0 = 13972.933, #11492 =ssb0This should correspond to give us the K from best Jabba run during burn years. Still need to create function to solve for this.
     rec_ac = 0,
     adult_movement = adult_movement,
     larval_movement = 2000,
@@ -107,14 +108,14 @@ for(i in 1:N) {
     ) # This is how sensitive fleet is to changes in profit. Do the respond on annual basis vs. 5 year average.)
   
   
-   system.time(simple <- sim_fishery_az_L(
+   system.time(simple <- sim_fishery_az(
     fish = fish,
     fleet = fleet,
     manager = create_manager(mpa_size = 0,#mpa_scen[i],
                              year_mpa = year_mpa),
     num_patches = num_patches,
-    sim_years = sim_years,
-    burn_years = burn_years,
+    sim_years = 2,
+    burn_years = 20,
     time_step = fish$time_step,
     #est_msy = FALSE,
     random_mpas =TRUE,
@@ -143,7 +144,7 @@ for(i in 1:N) {
     group_by(year) %>%
     summarise(biomass = sum(biomass),
               biomass_caught = sum(biomass_caught),
-              effort = sum(effort),
+              f = (sum(biomass_caught))/(sum(biomass)),
               profits=sum(profits),
             #  mpa = unique(mpa),
               b0 = unique(b0),
@@ -152,9 +153,9 @@ for(i in 1:N) {
             #  distance = unique(distance)
     ) %>%
     ungroup() %>%
-    mutate(b_ratio = biomass/b0,
+    mutate(b_ratio = biomass/b0
          #  cost_slope = fleet$cost_slope,
-           f = effort * fleet$q) %>%
+           ) %>%
         #   cost_intercept = c_intercept[i])
            filter(year==max(year))
 
@@ -169,6 +170,7 @@ print(paste0("Done with ",i))
 write.csv(an_sum,paste0(boxdir,runname,"grid_search.csv"))
 write.csv(L_cost_B,paste0(boxdir,runname,"grid_search_results.csv"))
 
+L_cost_B<-read.csv(paste0(boxdir,runname,"grid_search_results.csv")
 
 L_cost_B<-L_cost_B %>%
   mutate(rescale_b =B_ratio - 0.3)
@@ -226,7 +228,7 @@ down<- L_cost_B %>%
   filter(sse < 3e13) 
 
 ggplot(down,aes(x=L,y=c_intercept))+
-  geom_tile(aes(fillB_ratio))+
+  geom_tile(aes(fill=B_ratio))+
   #scale_fill_viridis_c("Bratio",n=1000) +
   scale_fill_gradient2(mid= "white", low=muted("blue"),high=muted("red"),"B_ratio",midpoint=0.3,na.value="grey") +
   theme_bw() +

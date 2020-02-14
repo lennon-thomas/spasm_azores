@@ -6,8 +6,8 @@ cv_len,,,
 min_age,1,year,ICES Report 2017 p 585
 max_age,15,year,ICES Report 2017 p 585
 time_step,,,
-weight_a,0.0172,NA,ICES Report 2017 Table 13.4.4
-weight_b,3.0273,NA,ICES Report 2017 Table 13.4.4
+weight_a,3.59E-05,NA,Fishbase
+weight_b,2.8,NA,Fishbase
 length_50_mature,30,cm,ICES Report 2017 p 587
 length_95_mature,,,
 length_50_selected,30,cm,"ICES Report 2017 Table 13.4.4, average Sousa et al 1999"
@@ -25,6 +25,3 @@ price_slope,,,
 sigma_r,,,
 rec_ac,,,
 cores,,,
-,,,
-,,,
-,,,

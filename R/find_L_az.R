@@ -29,18 +29,21 @@ find_L_az<-
                  distance = unique(distance)) %>%
       ungroup() %>%
       mutate(patch_cost = cost_intercept + cost_slope * distance,
-             p_f = 1-(patch_cost/(price-L)*patch_biomass))
+             p_f = 1-(patch_cost/((fish$price-dev_profit)*patch_biomass))) %>%
+      mutate(p_f=replace(p_f,p_f<0,0)) %>% mutate(p_f=replace(p_f,p_f>1,1)) %>%
+      mutate(effort = p_f/fleet$q)
+     # mutate(estimated_effort = p_f/fleet$q)
     
     #  pop_summary$p_effort<-ifelse(pop_summary$p_effort<0,0,pop_summary$p_effort)
     #  pop_summary$p_effort<-ifelse(is.na(pop_summary$p_effort),0,pop_summary$p_effort)
-    pop_summary$p_f<-ifelse(is.na( pop_summary$p_f),0, pop_summary$p_f)
+   # pop_summary$p_f<-ifelse(is.na( pop_summary$p_f),0, pop_summary$p_f)
     
     #  total_avg_costs<-mean(pop_summary$patch_cost) 
     # total_profit<-sum(profi
-    
+    total_estimated_effort<-sum(pop_summary$effort,na.rm = TRUE)
    
     
-    pop_summary$p_f<-ifelse(is.na( pop_summary$p_f),0, pop_summary$p_f)
+  #  pop_summary$p_f<-ifelse(is.na( pop_summary$p_f),0, pop_summary$p_f)
     
     sse<-(total_effort-total_estimated_effort)^2
     

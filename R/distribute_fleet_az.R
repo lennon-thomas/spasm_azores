@@ -20,7 +20,7 @@ distribute_fleet_az<-
     year = y,
     fish = fish,
     burn_years = burn_years,
-    total_effort = effort[y],
+    total_effort = f[y],
     fleet = fleet,
     num_patches = num_patches,
     mpa = mpa,
@@ -45,11 +45,11 @@ distribute_fleet_az<-
 #browser()
     pop_summary<- pops %>%
       group_by (patch) %>%
-      summarise (patch_biomass = sum(biomass,na.rm = TRUE),
+      summarise (patch_ssb = sum(ssb,na.rm = TRUE),
                  distance = unique(distance)) %>%
       ungroup() %>%
       mutate(patch_cost = cost_intercept + cost_slope * distance,
-              p_f = 1-(patch_cost/((fish$price-dev_profit)*patch_biomass))) %>%
+              p_f = 1-(patch_cost/((fish$price-dev_profit)*patch_ssb))) %>%
       mutate(p_f=replace(p_f,p_f<0,0)) %>% mutate(p_f=replace(p_f,p_f>1,1)) 
    
 
