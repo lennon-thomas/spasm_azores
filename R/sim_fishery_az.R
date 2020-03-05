@@ -342,7 +342,7 @@ sim_fishery_az<-
        group_by(from) %>%
        dplyr::mutate(prob_move = movement / sum(movement, na.rm = TRUE))
 
-browser()
+#browser()
      adult_move_matrix <- adult_move_grid %>%
        ungroup() %>%
        dplyr::select(from, to, prob_move) %>%
@@ -351,6 +351,7 @@ browser()
      #  uncount(10) %>%
        as.matrix()
 
+ 
 #browser()  
 # Start looping through years ---------------------------------------------
 
@@ -370,8 +371,8 @@ browser()
           slope <-
             fish$adult_movement - (fish$adult_movement * fish$density_movement_modifier)
        # closer to 1 density dependence has less of an affect
-       # 
-         how_crowded <- pop %>%
+   
+        how_crowded <- pop %>%
            filter(now_year) %>%
            group_by(patch) %>%
            summarise(ssb = sum(ssb, na.rm = TRUE)) %>%

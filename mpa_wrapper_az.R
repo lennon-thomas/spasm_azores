@@ -61,7 +61,7 @@ num_patches<-nrow(cell_lookup)
 #  L<-1e+04#-0.8*14500*6646/1177#500000 #0.00005
   sim_years<-100
   year_mpa<-75
-  burn_years<-5
+  burn_years<-1
   price<-14500
   L=2500#0.2*price
   mpasize<-0.25
@@ -125,12 +125,21 @@ num_patches<-nrow(cell_lookup)
   #option to fish all ages
  fleet$sel_at_age[c(1:4),]<-1
 
-
+ mpa_scen<-c(0,0.05,0.1,0.15,0.2,0.3,0.4,0.5,0.75,1)
+ 
+ mpa_results<-expand.grid(mpa_scen=mpa_scen,
+                          mpa_implement = c("before","after"),
+                          year = NA,
+                          biomass = NA,
+                          Catch = NA,
+                          Profit = NA)
+ 
+ for (i in 1:length(mpa_scen)){
     
   system.time(simple <- sim_fishery_az(
     fish = fish,
     fleet = fleet,
-    manager = create_manager(mpa_size = .25,#mpa_scen[i],
+    manager = create_manager(mpa_size = mpa_scen[i],
                              year_mpa = year_mpa),
     num_patches = num_patches,
     sim_years = sim_years,
@@ -164,22 +173,34 @@ num_patches<-nrow(cell_lookup)
               profits=sum(profits,na.rm = TRUE),
               mpa = unique(mpa),
               b0 = unique(b0),
-              distance = unique(distance),
-              ssb = sum(ssb)
+              distance = unique(distance)
             #  L= unique(L)
               ) %>%
     ungroup() %>%
     mutate(b_ratio = biomass/b0)  %>%
     mutate(cost_slope = fleet$cost_slope)
    # filter(!year==burn_years + 1)
-  write.csv(sim_sum,paste0(boxdir,runname,"/base_mpa_sim_sum.csv"))
+  write.csv(sim_sum,paste0(boxdir,runname,"/sim_sum_mpa.csv"))
 
-  plot_spasm_az(sim_sum, type = "totals", font_size = 12)
-test<-unique(cell_lookup$cell_no)[1:10]
-short<-simple %>%
-  filter(cell_no %in% test)
+  fish_equil<-sim_sum[sim_sum$year==70,]
+  mpa_equil<-sim_sum[sim_sum$year==99,]
   
- plot_spasm_az(short,type="patch",font_size=12)
+  mpa_results$year[ mpa_results$mpa_implement=="before"]<-70
+  mpa_results$year[mpa_results$ mpa_implement=="after"]<-99
+  
+  mpa_results$Biomass[ mpa_scen==mpa_scen[i] & mpa_results$mpa_implement=="before"]<-sum(fish_equil$biomass)
+  mpa_results$Catch[ mpa_scen==mpa_scen[i] & mpa_results$mpa_implement=="before"]<-sum(fish_equil$biomass_caught)
+  mpa_results$Profits[ mpa_scen==mpa_scen[i] & mpa_results$mpa_implement=="before"]<-sum(fish_equil$profits)
+  
+  mpa_results$Biomass[ mpa_scen==mpa_scen[i] & mpa_results$mpa_implement=="after"]<-sum(mpa_equil$biomass,na.rm = TRUE)
+  mpa_results$Catch[ mpa_scen==mpa_scen[i] & mpa_results$mpa_implement=="after"]<-sum(mpa_equil$biomass_caught,na.rm = TRUE)
+  mpa_results$Profits[ mpa_scen==mpa_scen[i] & mpa_results$mpa_implement=="after"]<-sum(mpa_equil$profits, na.rm = TRUE)
+  
+  write.csv(mpa_results,paste0(boxdir,runname,"/mpa_results2.csv"))
+  print(i)  
+  plot_spasm_az(sim_sum, type = "totals", font_size = 12,L=fleet$L)
+ }  
+ 
 
 # end wrapper -------------------------------------------------------------
 

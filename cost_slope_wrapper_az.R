@@ -164,15 +164,14 @@ num_patches<-nrow(cell_lookup)
               profits=sum(profits,na.rm = TRUE),
               mpa = unique(mpa),
               b0 = unique(b0),
-              distance = unique(distance),
-              ssb = sum(ssb)
+              distance = unique(distance)
             #  L= unique(L)
               ) %>%
     ungroup() %>%
     mutate(b_ratio = biomass/b0)  %>%
     mutate(cost_slope = fleet$cost_slope)
    # filter(!year==burn_years + 1)
-  write.csv(sim_sum,paste0(boxdir,runname,"/base_mpa_sim_sum.csv"))
+  write.csv(sim_sum,paste0(boxdir,runname,"/sim_sum.csv"))
 
   plot_spasm_az(sim_sum, type = "totals", font_size = 12)
 test<-unique(cell_lookup$cell_no)[1:10]

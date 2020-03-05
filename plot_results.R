@@ -10,11 +10,11 @@ boxdir<-"/Users/lennonrosethomas/Box Sync/SFG Centralized Resources/Projects/BPC
 #boxdir <- "C:/Users/iladner/Box/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/"
 runname<-"raster_output_4k"
 
-mpa_results<-read.csv(paste0(boxdir,runname,"/mpa_results.csv"))
+mpa_results<-read.csv(paste0(boxdir,runname,"/mpa_results2.csv"))
 
 area<-raster(paste0(boxdir,runname,"all_habitat.tif"))
 
-sim_sum<-read.csv(paste0(boxdir,runname,"/sim_sum_mpa_scen.csv"))
+sim_sum<-read.csv(paste0(boxdir,runname,"/sim_sum_mpa.csv"))
 
 area[unique(sim_sum$cell_no)]<-unique(sim_sum$cell_no)
 # MPA coverage ------------------------------------------------------------
@@ -26,18 +26,31 @@ mpa_results<-mpa_results %>%
   gather(key="attribute",value="Value",Biomass,Catch,Profits) %>%
   spread(mpa_implement,Value) %>%
   #  group_by(mpa_scen,Fishery attribute) %>%
-  mutate(MPA_effect = (after-before)/before *100)
+  mutate(MPA_effect = (after-before)/before *100) %>%
+  mutate(mpa_scen = round(mpa_scen,2)*100)
 
+bau<-rep(0,30)
+bau<-as.data.frame(cbind(bau,mpa_results$mpa_scen))
+colnames(bau)<-c("BAU","mpa")
 
-
-ggplot(mpa_results)+
-  geom_line(aes(x=mpa_scen,y=MPA_effect,color=attribute),size=2) +
+ggplot()+
+  geom_line(data=bau,aes(x=mpa,y=BAU,col=as.factor(BAU)),col="black",lwd=1.8,show.legend = TRUE) +
+  scale_color_discrete("BAU") +
+  geom_point(data=mpa_results,aes(x=mpa_scen,y=MPA_effect,color=attribute),size=2.5,show.legend = TRUE) +
+  scale_color_viridis_d("",end=0.7,direction=-1) +
+  
+  #scale_x_discrete(limits=c("0 %","","50 %","","100 %")) +
   theme_bw() +
+  theme(axis.title =(element_text(size =14)),
+        strip.text = (element_text(size=14)),
+        axis.text = (element_text(size=12))) +
+  
   #facet_wrap(~attribute)+
-  geom_hline(yintercept=0,col="red") +
-  xlab("MPA Scenario") +
-  ylab("MPA Effect")+
-  scale_color_viridis_d("",end=0.7,direction=-1)
+
+  xlab("MPA Scenario (%)") +
+  ylab("% change") +
+
+  facet_wrap(~attribute,scales="free")
 
 
 # mpa placement -----------------------------------------------------------
@@ -48,7 +61,7 @@ ggplot(mpa_results)+
 
 
 #variable<-c("B_ratio","Catch","Effort","f","Profit Per Unit Effort","Profits")
-land = raster(paste0(boxdir, "raster_output_4k/land_proj.tif"))
+land = readOG
 coord<-xyFromCell(goraz,cell_no)
 goraz_df<-as.data.frame(goraz)
 colnames(coord)<-c("Long","Lat")

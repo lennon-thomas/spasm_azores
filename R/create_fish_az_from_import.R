@@ -267,7 +267,7 @@ create_fish_az_from_import <- function(common_name = 'white seabass',
   
   # process weight
   
-  weight_at_age <- weight_a * length_at_age ^ weight_b
+  weight_at_age <- (weight_a) * length_at_age ^ weight_b
   
   lmat_to_linf_ratio <- length_mature / linf
   
