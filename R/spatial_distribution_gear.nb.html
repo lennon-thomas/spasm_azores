@@ -1750,8 +1750,93 @@ summary {
 
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
+<!-- rnb-text-begin -->
+<div id="housekeeping" class="section level1">
+<h1>Housekeeping</h1>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZmlsZV9wYXRoIDwtIFwiL1ZvbHVtZXMvR29vZ2xlRHJpdmUvU2hhcmVkIGRyaXZlcy9lbWxhYi9wcm9qZWN0cy9jdXJyZW50LXByb2plY3RzL2JsdWUtcHJvc3Blcml0eS1jb2FsaXRpb24vZGF0YS9Bem9yZXMvXCJcbmBgYCJ9 -->
+<pre class="r"><code>file_path &lt;- &quot;/Volumes/GoogleDrive/Shared drives/emlab/projects/current-projects/blue-prosperity-coalition/data/Azores/&quot;</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+</div>
+<div id="load-data" class="section level1">
+<h1>Load Data</h1>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBGbGVldCBEYXRhXG5mbGVldF9wYXRoIDwtIHBhc3RlMChmaWxlX3BhdGgsIFwiYXpvcmVzLWZpc2hpbmctdmVzc2VsLWxpY2Vuc2VzL1wiKVxuZmxlZXRfbGlzdCA8LSBsaXN0LmZpbGVzKGZsZWV0X3BhdGgsIHBhdHRlcm49XCJ4bHN4XCIpXG5cbiMgQ29uc29saWRhdGUgYWxsIGZsZWV0IGRhdGEgaW50byBvbmUgZGF0YWZyYW1lXG5mbGVldF9kYXRhIDwtIE5VTExcbmZvcihmaWxlIGluIGZsZWV0X2xpc3Qpe1xuICB0ZW1wIDwtIHJlYWRfeGxzeChwYXN0ZTAoZmxlZXRfcGF0aCwgZmlsZSkpXG4gIGlmKGZpbGUgPT0gXCJGbGVldF8yMDA5Lnhsc3hcIikgeyBcbiAgICBjb2xuYW1lcyh0ZW1wKVszXSA8LSBcIkxvYVwifVxuICBpZihmaWxlICVpbiUgYyhcIkZsZWV0XzIwMTUueGxzeFwiLCBcIkZsZWV0XzIwMTYueGxzeFwiLCBcIkZsZWV0XzIwMTcueGxzeFwiLCBcIkZsZWV0XzIwMTgueGxzeFwiKSkgeyBcbiAgICB0ZW1wIDwtIHRlbXAgJT4lIFxuICAgICAgbXV0YXRlKFwiR2VhciByYW5raW5nXCIgPSBOQSlcbiAgfVxuICB0ZW1wIDwtIHRlbXAgJT4lIFxuICAgIHNlbGVjdChZZWFyLCBWZXNzZWxfSURfQ29kZSwgTG9hLCBgR2VhciByYW5raW5nYCwgR2VhciwgQ2FyYWN0ZXJpc3RpY3MpXG4gIGZsZWV0X2RhdGEgPC0gcmJpbmQoZmxlZXRfZGF0YSwgdGVtcClcbn1cblxuIyBMb2dib29rc1xubG9nX3BhdGggPC0gcGFzdGUwKGZpbGVfcGF0aCwgXCJMb2dCb29rc19Gb0EmV0ZfMjAwOV8yMDE4L1wiKVxubG9nX2xpc3QgPC0gbGlzdC5maWxlcyhsb2dfcGF0aCwgcGF0dGVybiA9IFwieGxzeFwiKVxuXG4jIENvbnNvbGlkYXRlIGFsbCBsb2dib29rIGRhdGEgaW50byBvbmUgZGF0YWZyYW1lXG5sb2dib29rX2RhdGEgPC0gTlVMTFxuZm9yKGZpbGUgaW4gbG9nX2xpc3Qpe1xuICB0ZW1wIDwtIHJlYWRfeGxzeChwYXN0ZTAobG9nX3BhdGgsIGZpbGUpLCBzaGVldD1cIkNBVENIXCIpXG4gIHRlbXAgPC0gdGVtcFssMToxOF1cbiAgbG9nYm9va19kYXRhIDwtIHJiaW5kKGxvZ2Jvb2tfZGF0YSwgdGVtcClcbn1cbmBgYCJ9 -->
+<pre class="r"><code># Fleet Data
+fleet_path &lt;- paste0(file_path, &quot;azores-fishing-vessel-licenses/&quot;)
+fleet_list &lt;- list.files(fleet_path, pattern=&quot;xlsx&quot;)
 
-<div id="rmd-source-code">LS0tCnRpdGxlOiAiU3BhdGlhbCBEaXN0cmlidXRpb24gLSBHZWFyIFR5cGVzIgpvdXRwdXQ6IGh0bWxfbm90ZWJvb2sKLS0tCgo=</div>
+# Consolidate all fleet data into one dataframe
+fleet_data &lt;- NULL
+for(file in fleet_list){
+  temp &lt;- read_xlsx(paste0(fleet_path, file))
+  if(file == &quot;Fleet_2009.xlsx&quot;) { 
+    colnames(temp)[3] &lt;- &quot;Loa&quot;}
+  if(file %in% c(&quot;Fleet_2015.xlsx&quot;, &quot;Fleet_2016.xlsx&quot;, &quot;Fleet_2017.xlsx&quot;, &quot;Fleet_2018.xlsx&quot;)) { 
+    temp &lt;- temp %&gt;% 
+      mutate(&quot;Gear ranking&quot; = NA)
+  }
+  temp &lt;- temp %&gt;% 
+    select(Year, Vessel_ID_Code, Loa, `Gear ranking`, Gear, Caracteristics)
+  fleet_data &lt;- rbind(fleet_data, temp)
+}
+
+# Logbooks
+log_path &lt;- paste0(file_path, &quot;LogBooks_FoA&amp;WF_2009_2018/&quot;)
+log_list &lt;- list.files(log_path, pattern = &quot;xlsx&quot;)
+
+# Consolidate all logbook data into one dataframe
+logbook_data &lt;- NULL
+for(file in log_list){
+  temp &lt;- read_xlsx(paste0(log_path, file), sheet=&quot;CATCH&quot;)
+  temp &lt;- temp[,1:18]
+  logbook_data &lt;- rbind(logbook_data, temp)
+}</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiTmV3IG5hbWVzOlxuKiBgYCAtPiAuLi4xOVxuKiBgYCAtPiAuLi4yMFxuKiBgYCAtPiAuLi4yMVxuKiBgYCAtPiAuLi4yMlxuIn0= -->
+<pre><code>New names:
+* `` -&gt; ...19
+* `` -&gt; ...20
+* `` -&gt; ...21
+* `` -&gt; ...22</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBDbGVhbiBVcFxucmVtb3ZlKHRlbXApXG5gYGAifQ== -->
+<pre class="r"><code># Clean Up
+remove(temp)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+</div>
+<div id="clean-data" class="section level1">
+<h1>Clean Data</h1>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBPbmx5IGtlZXAgbG9nYm9vayBkYXRhIHRoYXQgaGFzIEdQUyBjb29yZGluYXRlc1xubG9nYm9va19kYXRhIDwtIGxvZ2Jvb2tfZGF0YSAlPiUgXG4gIGZpbHRlcighaXMubmEoTEFUX0lOSSkgfCAhaXMubmEoTE9OX0lOSSkgfCAhaXMubmEoTEFUX0VORCkgfCAhaXMubmEoTE9OR19FTkQpKVxuXG5gYGAifQ== -->
+<pre class="r"><code># Only keep logbook data that has GPS coordinates
+logbook_data &lt;- logbook_data %&gt;% 
+  filter(!is.na(LAT_INI) | !is.na(LON_INI) | !is.na(LAT_END) | !is.na(LONG_END))
+</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiRXJyb3I6IG9iamVjdCAnTE9OX0lOSScgbm90IGZvdW5kXG4ifQ== -->
+<pre><code>Error: object 'LON_INI' not found</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+</div>
+<div id="merge-data" class="section level1">
+<h1>Merge Data</h1>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<!-- rnb-text-end -->
+</div>
+
+<div id="rmd-source-code">LS0tCnRpdGxlOiAiU3BhdGlhbCBEaXN0cmlidXRpb24gLSBHZWFyIFR5cGVzIgpvdXRwdXQ6IGh0bWxfbm90ZWJvb2sKLS0tCgpgYGB7ciwgaW5jbHVkZT1GQUxTRX0KbGlicmFyeShyZWFkeGwpCmxpYnJhcnkodGlkeXZlcnNlKQpgYGAKCiMgSG91c2VrZWVwaW5nCmBgYHtyLCBlY2hvPVRSVUV9CmZpbGVfcGF0aCA8LSAiL1ZvbHVtZXMvR29vZ2xlRHJpdmUvU2hhcmVkIGRyaXZlcy9lbWxhYi9wcm9qZWN0cy9jdXJyZW50LXByb2plY3RzL2JsdWUtcHJvc3Blcml0eS1jb2FsaXRpb24vZGF0YS9Bem9yZXMvIgpgYGAKCiMgTG9hZCBEYXRhCmBgYHtyLCBlY2hvPVRSVUV9CiMgRmxlZXQgRGF0YQpmbGVldF9wYXRoIDwtIHBhc3RlMChmaWxlX3BhdGgsICJhem9yZXMtZmlzaGluZy12ZXNzZWwtbGljZW5zZXMvIikKZmxlZXRfbGlzdCA8LSBsaXN0LmZpbGVzKGZsZWV0X3BhdGgsIHBhdHRlcm49Inhsc3giKQoKIyBDb25zb2xpZGF0ZSBhbGwgZmxlZXQgZGF0YSBpbnRvIG9uZSBkYXRhZnJhbWUKZmxlZXRfZGF0YSA8LSBOVUxMCmZvcihmaWxlIGluIGZsZWV0X2xpc3QpewogIHRlbXAgPC0gcmVhZF94bHN4KHBhc3RlMChmbGVldF9wYXRoLCBmaWxlKSkKICBpZihmaWxlID09ICJGbGVldF8yMDA5Lnhsc3giKSB7IAogICAgY29sbmFtZXModGVtcClbM10gPC0gIkxvYSJ9CiAgaWYoZmlsZSAlaW4lIGMoIkZsZWV0XzIwMTUueGxzeCIsICJGbGVldF8yMDE2Lnhsc3giLCAiRmxlZXRfMjAxNy54bHN4IiwgIkZsZWV0XzIwMTgueGxzeCIpKSB7IAogICAgdGVtcCA8LSB0ZW1wICU+JSAKICAgICAgbXV0YXRlKCJHZWFyIHJhbmtpbmciID0gTkEpCiAgfQogIHRlbXAgPC0gdGVtcCAlPiUgCiAgICBzZWxlY3QoWWVhciwgVmVzc2VsX0lEX0NvZGUsIExvYSwgYEdlYXIgcmFua2luZ2AsIEdlYXIsIENhcmFjdGVyaXN0aWNzKQogIGZsZWV0X2RhdGEgPC0gcmJpbmQoZmxlZXRfZGF0YSwgdGVtcCkKfQoKIyBMb2dib29rcwpsb2dfcGF0aCA8LSBwYXN0ZTAoZmlsZV9wYXRoLCAiTG9nQm9va3NfRm9BJldGXzIwMDlfMjAxOC8iKQpsb2dfbGlzdCA8LSBsaXN0LmZpbGVzKGxvZ19wYXRoLCBwYXR0ZXJuID0gInhsc3giKQoKIyBDb25zb2xpZGF0ZSBhbGwgbG9nYm9vayBkYXRhIGludG8gb25lIGRhdGFmcmFtZQpsb2dib29rX2RhdGEgPC0gTlVMTApmb3IoZmlsZSBpbiBsb2dfbGlzdCl7CiAgdGVtcCA8LSByZWFkX3hsc3gocGFzdGUwKGxvZ19wYXRoLCBmaWxlKSwgc2hlZXQ9IkNBVENIIikKICB0ZW1wIDwtIHRlbXBbLDE6MThdCiAgbG9nYm9va19kYXRhIDwtIHJiaW5kKGxvZ2Jvb2tfZGF0YSwgdGVtcCkKfQoKIyBDbGVhbiBVcApyZW1vdmUodGVtcCkKYGBgCgojIENsZWFuIERhdGEKYGBge3IsIGVjaG89VFJVRX0KIyBNYWtlIHN1cmUgYWxsIHJvd3MgaGF2ZSBjaGFyYWN0ZXJpc3RpYyBkYXRhCmZsZWV0X2RhdGEgPC0gZmxlZXRfZGF0YSAlPiUgCiAgbXV0YXRlKENhcmFjdGVyaXN0aWNzID0gaWZlbHNlKGlzLm5hKENhcmFjdGVyaXN0aWNzKSwgdG9sb3dlcihHZWFyKSwgdG9sb3dlcihDYXJhY3RlcmlzdGljcykpKQoKIyBPbmx5IGtlZXAgZmxlZXQgZGF0YSBmcm9tIGZpc2hlcnMgd2hvIHVzZSBlaXRoZXIgaGFuZGxpbmVzIG9yIGJvdHRvbSBsb25nbGluZXMKZmxlZXRfZGF0YSA8LSBmaWx0ZXIoZmxlZXRfZGF0YSwgCiAgICAgICAgICAgICAgICAgICAgIGdyZXBsKCJoYW5kbGluZXxib3R0b20gbG9uZ2xpbmUiLCBDYXJhY3RlcmlzdGljcykpCgojIE9ubHkga2VlcCBsb2dib29rIGRhdGEgdGhhdCBoYXMgR1BTIGNvb3JkaW5hdGVzCmxvZ2Jvb2tfZGF0YSA8LSBsb2dib29rX2RhdGEgJT4lIAogIGZpbHRlcighaXMubmEoTEFUX0lOSSkgfCAhaXMubmEoTE9OR19JTkkpIHwgIWlzLm5hKExBVF9FTkQpIHwgIWlzLm5hKExPTkdfRU5EKSkKYGBgCgojIE1lcmdlIERhdGEKYGBge3IsIGVjaG89VFJVRX0KCmBgYAoK</div>
 
 
 

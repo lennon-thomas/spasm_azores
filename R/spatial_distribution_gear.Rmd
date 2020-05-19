@@ -3,3 +3,70 @@ title: "Spatial Distribution - Gear Types"
 output: html_notebook
 ---
 
+```{r, include=FALSE}
+library(readxl)
+library(tidyverse)
+```
+
+# Housekeeping
+```{r, echo=TRUE}
+file_path <- "/Volumes/GoogleDrive/Shared drives/emlab/projects/current-projects/blue-prosperity-coalition/data/Azores/"
+```
+
+# Load Data
+```{r, echo=TRUE}
+# Fleet Data
+fleet_path <- paste0(file_path, "azores-fishing-vessel-licenses/")
+fleet_list <- list.files(fleet_path, pattern="xlsx")
+
+# Consolidate all fleet data into one dataframe
+fleet_data <- NULL
+for(file in fleet_list){
+  temp <- read_xlsx(paste0(fleet_path, file))
+  if(file == "Fleet_2009.xlsx") { 
+    colnames(temp)[3] <- "Loa"}
+  if(file %in% c("Fleet_2015.xlsx", "Fleet_2016.xlsx", "Fleet_2017.xlsx", "Fleet_2018.xlsx")) { 
+    temp <- temp %>% 
+      mutate("Gear ranking" = NA)
+  }
+  temp <- temp %>% 
+    select(Year, Vessel_ID_Code, Loa, `Gear ranking`, Gear, Caracteristics)
+  fleet_data <- rbind(fleet_data, temp)
+}
+
+# Logbooks
+log_path <- paste0(file_path, "LogBooks_FoA&WF_2009_2018/")
+log_list <- list.files(log_path, pattern = "xlsx")
+
+# Consolidate all logbook data into one dataframe
+logbook_data <- NULL
+for(file in log_list){
+  temp <- read_xlsx(paste0(log_path, file), sheet="CATCH")
+  temp <- temp[,1:18]
+  logbook_data <- rbind(logbook_data, temp)
+}
+
+# Clean Up
+remove(temp)
+```
+
+# Clean Data
+```{r, echo=TRUE}
+# Make sure all rows have characteristic data
+fleet_data <- fleet_data %>% 
+  mutate(Caracteristics = ifelse(is.na(Caracteristics), tolower(Gear), tolower(Caracteristics)))
+
+# Only keep fleet data from fishers who use either handlines or bottom longlines
+fleet_data <- filter(fleet_data, 
+                     grepl("handline|bottom longline", Caracteristics))
+
+# Only keep logbook data that has GPS coordinates
+logbook_data <- logbook_data %>% 
+  filter(!is.na(LAT_INI) | !is.na(LONG_INI) | !is.na(LAT_END) | !is.na(LONG_END))
+```
+
+# Merge Data
+```{r, echo=TRUE}
+
+```
+
