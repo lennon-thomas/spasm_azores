@@ -6,6 +6,8 @@ output: html_notebook
 ```{r, include=FALSE}
 library(readxl)
 library(tidyverse)
+library(maps)
+library(rgdal) # for shapefiles
 ```
 
 # Housekeeping
@@ -14,7 +16,7 @@ file_path <- "/Volumes/GoogleDrive/Shared drives/emlab/projects/current-projects
 ```
 
 # Load Data
-```{r, echo=TRUE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Fleet Data
 fleet_path <- paste0(file_path, "azores-fishing-vessel-licenses/")
 fleet_list <- list.files(fleet_path, pattern="xlsx")
@@ -46,27 +48,96 @@ for(file in log_list){
   logbook_data <- rbind(logbook_data, temp)
 }
 
+# VMS Data
+vms_path <- paste0(file_path, "VMS_FoA&WF_2016_18/")
+vms_list <- list.files(vms_path, pattern="xlsx")
+
+# Consolidate all vms data into one dataframe
+vms_data <- NULL
+for(file in vms_list){ 
+  temp <- read_xlsx(paste0(vms_path, file))
+  vms_data <- rbind(vms_data, temp)
+}
+
 # Clean Up
 remove(temp)
 ```
 
-# Clean Data
+# Clean Data - Vessel Licenses
 ```{r, echo=TRUE}
 # Make sure all rows have characteristic data
 fleet_data <- fleet_data %>% 
   mutate(Caracteristics = ifelse(is.na(Caracteristics), tolower(Gear), tolower(Caracteristics)))
+```
+Several vessels are registered for both bottom longline and handline in the same year. 
 
+# Clean Data - Logbooks
+```{r, echo=TRUE}
 # Only keep fleet data from fishers who use either handlines or bottom longlines
 fleet_data <- filter(fleet_data, 
                      grepl("handline|bottom longline", Caracteristics))
 
-# Only keep logbook data that has GPS coordinates
+# Only keep logbook data that have either bottom longline or handline gear
 logbook_data <- logbook_data %>% 
-  filter(!is.na(LAT_INI) | !is.na(LONG_INI) | !is.na(LAT_END) | !is.na(LONG_END))
+  filter(GEAR %in% c("Palangre de fundo", "Linha de mão")) %>% 
+  mutate(GEAR = gsub("Palangre de fundo", "bottom longline", GEAR), 
+         GEAR = gsub("Linha de mão", "handline", GEAR))
+
+# Convert date to posix
+logbook_data <- logbook_data %>% 
+  mutate(DATE_INI = as.POSIXct(DATE_INI, format="%y.%m.%d"), 
+         DATE_END = as.POSIXct(DATE_END, format="%y.%m.%d"))
 ```
 
-# Merge Data
+All logbookd ata that are either Linha de mão (handline) or Palangre de fundo (bottom longline) have no GPS coordinates. 
+
+# Clean Data - VMS
 ```{r, echo=TRUE}
-
+# Add date column so we can merge with the logbook data
+vms_data <- vms_data %>% 
+  mutate(date = format(`Date / Hour`, format="%Y-%m-%d"), 
+         date = as.POSIXct(date, format="%Y-%m-%d"))
 ```
 
+# Add Logbook Data to VMS 
+```{r, echo=TRUE}
+vms_data <- vms_data %>% 
+  left_join(logbook_data, by=c("date" = "DATE_INI", "Vessel_ID_Code")) %>% 
+  filter(!is.na(DATE_END))
+```
+
+# Grab Unique Fishing Locations
+```{r, echo=TRUE}
+# Data are recorded as species catch, but we really just want to see the spatial distribution of fishing locations by gear type
+vms_locations <- vms_data %>% 
+  select(Vessel_ID_Code, `Date / Hour`, Latitude, Longitude, GEAR) %>% 
+  distinct_all()
+```
+
+
+# Map it! 
+```{r message=FALSE, warning=FALSE}
+# Read in EEZ shapefile
+eez <- readOGR(paste0(file_path, "spatial_data/azores_EEZ.shp"))
+```
+ 
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Create plot
+map <- ggplot() + 
+  geom_polygon(data = eez, aes(x = long, y = lat, group = group, fill=hole), colour = "black") +
+  scale_fill_manual(values=alpha(c("slategray3", "white"), c(0.4, 1)), guide="none") +
+  xlab("Longitude (DD)") + ylab("Latitude (DD)") + 
+  theme_void() + 
+  theme(panel.background = element_rect(fill="slategray1"))
+
+layer <- map + 
+  geom_point(vms_locations, mapping = aes(x=Longitude, y=Latitude, color=GEAR), alpha=0.5)
+
+layer
+```
+
+```{r, echo=TRUE}
+layer + coord_map(xlim = c(-26, -25), ylim=c(37,38))
+```
+
+If we use just the datasets that are present in this dataframe, we might be able to tease out different areas that are used for bottom longlines and handlines. However, it seems like there may be data that are missing that would potentially show a complete overlap of both gear types. It doesn't seem like handlines are limited to the coastal areas; handline geartypes are logged just as far offshore as bottom longlines.
