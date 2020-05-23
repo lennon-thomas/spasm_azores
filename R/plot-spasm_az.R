@@ -15,7 +15,7 @@
 #' }
 #'
 #'
-plot_spasm_az <- function(sim, type = "patch", font_size = 14, L=fleet$L, cost_intercept = fleet$cost_intercept){
+plot_spasm_az <- function(sim, type = "patch", font_size = 14, L=fleet$L, cost_intercept = fleet$cost_intercept, mpasize = size_mpa){
 
 mpayear <- year_mpa#sim$year[which(sim$mpa == TRUE)[1]]
 
@@ -93,7 +93,7 @@ if (type == "doughnut"){
       Effort = sum(effort),
       Profits = sum(profits),
       Biomass = sum(biomass),
-      mpa = unique(mpa)
+      mpa = unique(eventual_mpa)
     ) %>%
     ungroup() %>%
     mutate(`Profit Per Unit Effort` = Profits / Effort) %>%
