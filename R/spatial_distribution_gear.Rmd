@@ -67,15 +67,18 @@ remove(temp)
 ```{r, echo=TRUE}
 # Make sure all rows have characteristic data
 fleet_data <- fleet_data %>% 
-  mutate(Caracteristics = ifelse(is.na(Caracteristics), tolower(Gear), tolower(Caracteristics)))
+  mutate(Caracteristics = ifelse(is.na(Caracteristics), tolower(Gear), tolower(Caracteristics)), 
+         Gear = ifelse(is.na(Gear), tolower(Gear), tolower(Gear)))
 ```
 Several vessels are registered for both bottom longline and handline in the same year. 
 
 # Clean Data - Logbooks
 ```{r, echo=TRUE}
 # Only keep fleet data from fishers who use either handlines or bottom longlines
-fleet_data <- filter(fleet_data, 
-                     grepl("handline|bottom longline", Caracteristics))
+fleet_data <- fleet_data %>% 
+  filter(grepl("handline|bottom longline", Caracteristics) | grepl("handline|bottom longline", Gear)) %>% 
+  mutate(gear = ifelse(grepl("handline|bottom longline", Caracteristics), Caracteristics, Gear)) %>% 
+  select(-Gear, -Caracteristics)
 
 # Only keep logbook data that have either bottom longline or handline gear
 logbook_data <- logbook_data %>% 
@@ -89,7 +92,21 @@ logbook_data <- logbook_data %>%
          DATE_END = as.POSIXct(DATE_END, format="%y.%m.%d"))
 ```
 
-All logbookd ata that are either Linha de mão (handline) or Palangre de fundo (bottom longline) have no GPS coordinates. 
+All logbook data that are either Linha de mão (handline) or Palangre de fundo (bottom longline) have no GPS coordinates. 
+
+# Quick Check for 2018 vessels
+```{r}
+both_gears_2018 <- fleet_data %>% 
+  filter(Year == 2018) %>% 
+  select(Vessel_ID_Code, gear) %>%
+  distinct_all() %>% 
+  group_by(Vessel_ID_Code) %>% 
+  summarise(n = n()) %>% 
+  filter(n > 1)
+
+nrow(both_gears_2018)
+```
+
 
 # Clean Data - VMS
 ```{r, echo=TRUE}
