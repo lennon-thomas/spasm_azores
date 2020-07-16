@@ -146,7 +146,7 @@ cell_lookup<-cell_lookup %>%
   # )
   # # Define fleet ------------------------------------------------------------
   
-mpa_cells<-round(num_patches*0.075)
+mpa_cells<-round(num_patches*0.15)
 
 handline_cells<-cell_lookup %>%
            filter(handline==1)
@@ -161,6 +161,10 @@ bll_cells<-cell_lookup %>%
 bll_mpa<-bll_cells$patch[1:mpa_cells]
 
 both<-c(handline_mpa,bll_mpa)
+
+effort_cells<-cell_lookup %>%
+  filter(top_fifteen==1)
+effort_mpa<-effort_cells$patch[1:mpa_cells]
 
   fleet <- create_fleet_az(
     fish = fish,
@@ -186,7 +190,7 @@ both<-c(handline_mpa,bll_mpa)
     fleet = fleet,
     manager = create_manager(mpa_size = size_mpa,
                              year_mpa = year_mpa,
-                             mpa_locations =both),
+                             mpa_locations =bll_mpa),
     num_patches = num_patches,
     sim_years = sim_years,
     burn_years = burn_years,
