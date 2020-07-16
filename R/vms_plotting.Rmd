@@ -1,0 +1,359 @@
+---
+title: "Spatial Distribution - Gear Types"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+
+```{r, include=FALSE}
+library(readxl)
+library(tidyverse)
+library(maps)
+library(rgdal) # for shapefiles
+```
+
+# Housekeeping
+```{r, echo=TRUE}
+file_path <- "/Volumes/GoogleDrive/Shared drives/emlab/projects/current-projects/blue-prosperity-coalition/data/Azores/"
+```
+
+# Load Data
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Fleet Data
+fleet_path <- paste0(file_path, "azores-fishing-vessel-licenses/")
+fleet_list <- list.files(fleet_path, pattern="xlsx")
+
+# Consolidate all fleet data into one dataframe
+fleet_data <- NULL
+for(file in fleet_list){
+  temp <- read_xlsx(paste0(fleet_path, file))
+  if(file == "Fleet_2009.xlsx") { 
+    colnames(temp)[3] <- "Loa"}
+  if(file %in% c("Fleet_2015.xlsx", "Fleet_2016.xlsx", "Fleet_2017.xlsx", "Fleet_2018.xlsx")) { 
+    temp <- temp %>% 
+      mutate("Gear ranking" = NA)
+  }
+  temp <- temp %>% 
+    select(Year, Vessel_ID_Code, Loa, `Gear ranking`, Gear, Caracteristics)
+  fleet_data <- rbind(fleet_data, temp)
+}
+
+
+# Logbooks
+log_path <- paste0(file_path, "LogBooks_FoA&WF_2009_2018/")
+log_list <- list.files(log_path, pattern = "xlsx")
+
+# Consolidate all logbook data into one dataframe
+logbook_data <- NULL
+for(file in log_list){
+  temp <- read_xlsx(paste0(log_path, file), sheet="CATCH")
+  temp <- temp[,1:18]
+  logbook_data <- rbind(logbook_data, temp)
+}
+
+# VMS Data
+vms_path <- paste0(file_path, "VMS_FoA&WF_2016_18/")
+vms_list <- list.files(vms_path, pattern="xlsx")
+
+# Consolidate all vms data into one dataframe
+vms_data <- NULL
+for(file in vms_list){ 
+  temp <- read_xlsx(paste0(vms_path, file))
+  vms_data <- rbind(vms_data, temp)
+}
+
+# Clean Up
+remove(temp)
+```
+
+# Clean Data - Vessel Licenses
+```{r, echo=TRUE}
+# Make sure all rows have characteristic data
+fleet_data <- fleet_data %>% 
+  mutate(Caracteristics = ifelse(is.na(Caracteristics), tolower(Gear), tolower(Caracteristics)))
+```
+Several vessels are registered for both bottom longline and handline in the same year. 
+
+# Look at characterstics of 2019 demersal fleet
+```{r echo=FALSE}
+gear<-c("Bottom longline","Handlines")
+species<-c("demersal and deep-water species","deep-water species","demersal, deep-water and pelagic species and squids")
+
+recent_fleet<- fleet_data %>%
+  filter(Year==2018)%>%
+  filter(Gear %in% gear)%>%
+  filter(Caracteristics %in% species) %>%
+  mutate(Length = round (Loa))
+
+recent_fleet$Length<-as.factor(recent_fleet$Length)
+
+handline<-recent_fleet %>%
+  filter(Gear=="Handlines")
+
+bll<-recent_fleet %>%
+  filter(Gear=="Bottom longline")
+
+both<-intersect(handline$Vessel_ID_Code,bll$Vessel_ID_Code)
+
+multiple<-recent_fleet %>%
+  filter(Vessel_ID_Code %in% both) %>%
+  count(Length) %>%
+    mutate(fleet = "Handline and bottom longline")
+
+bll<-bll %>%
+  filter(!Vessel_ID_Code %in% both) %>%
+  count(Length) %>%
+  mutate(fleet = "Bottom longline") 
+
+
+handline<- handline %>%
+  filter(!Vessel_ID_Code %in% both) %>%
+  count(Length) %>%
+  mutate(fleet = "Handline")
+
+
+fleet_vessels<-rbind(handline,bll,multiple)
+
+fleet_vessels$Length<-as.numeric(fleet_vessels$Length)
+  
+
+ggplot(fleet_vessels,aes(y=n,x=Length))+
+  geom_bar(stat="identity")+
+  facet_wrap(~fleet)+
+  theme_bw() +
+  xlab("Vessel Length (m)") +
+  ylab("Number")
+
+
+
+
+
+
+```
+
+There are `r length(unique(recent_fleet$Vessel_ID_Code))` demersal licenses registered in 2018. `r nrow(multiple)` vessels are registered as both handline and longline, `r nrow(bll)` registered as just bottomlongline and 'r nrow(handline)`
+# Plot fleet data
+```{r}
+
+```
+
+
+
+# Clean Data - Logbooks
+```{r, echo=TRUE}
+# Only keep fleet data from fishers who use either handlines or bottom longlines
+fleet_data <- filter(fleet_data, 
+                     grepl("handline|bottom longline", Caracteristics))
+
+# Only keep logbook data that have either bottom longline or handline gear
+logbook_data <- logbook_data %>% 
+  filter(GEAR %in% c("Palangre de fundo", "Linha de mão")) %>% 
+  mutate(GEAR = gsub("Palangre de fundo", "bottom longline", GEAR), 
+         GEAR = gsub("Linha de mão", "handline", GEAR))
+
+# Convert date to posix
+logbook_data <- logbook_data %>% 
+  mutate(DATE_INI = as.POSIXct(DATE_INI, format="%y.%m.%d"), 
+         DATE_END = as.POSIXct(DATE_END, format="%y.%m.%d"))
+```
+
+All logbookd ata that are either Linha de mão (handline) or Palangre de fundo (bottom longline) have no GPS coordinates. 
+
+# Clean Data - VMS
+```{r, echo=TRUE}
+# Add date column so we can merge with the logbook data
+vms_data <- vms_data %>% 
+  mutate(date = format(`Date / Hour`, format="%Y-%m-%d"), 
+         date = as.POSIXct(date, format="%Y-%m-%d"))
+```
+
+# Add Logbook Data to VMS 
+```{r}
+
+```
+
+```{r, echo=TRUE}
+vms_data <- vms_data %>% 
+  left_join(logbook_data, by=c("date" = "DATE_INI", "Vessel_ID_Code"))# %>% 
+  filter(!is.na(DATE_END))
+```
+
+# Grab Unique Fishing Locations
+```{r, echo=TRUE}
+# Data are recorded as species catch, but we really just want to see the spatial distribution of fishing locations by gear type
+vms_locations <- vms_data %>% 
+  select(Vessel_ID_Code, `Date / Hour`, Latitude, Longitude, GEAR,Speed) %>% 
+  distinct_all() %>%
+ # add speed filter
+  filter(Speed==0)
+```
+
+
+# Map it! 
+```{r message=FALSE, warning=FALSE}
+# Read in EEZ shapefile
+boxdir<-"/Users/lennonrosethomas/Box Sync/SFG Centralized Resources/Projects/BPC/Azores/Data/SIGMAR"
+
+eez <- readOGR(paste0(file_path, "spatial_data/azores_EEZ.shp"))
+
+six<-readOGR(dsn=paste0(boxdir,"/six_nm"),"6NM to coastline")
+
+six_new<-spTransform(six,CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+
+three<-readOGR(dsn=paste0(boxdir,"/three_nm"),"3NM to coastline")
+
+```
+ 
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Create plot
+map <- ggplot() + 
+  geom_polygon(data = eez, aes(x = long, y = lat, group = group, fill=hole), colour = "black") +
+   geom_polygon(data = six_new, aes(x = long, y = lat, group = group), colour = "black",fill=NA,linetype=2) +
+   geom_polygon(data = three, aes(x = long, y = lat, group = group), colour = "black",fill=NA,linetype=3,size=0.3) +
+  scale_fill_manual(values=alpha(c("slategray3", "white"), c(0.4, 1)), guide="none") +
+  xlab("Longitude (DD)") + ylab("Latitude (DD)") + 
+  theme_void() + 
+  theme(panel.background = element_rect(fill="slategray1"))
+
+layer <- map + 
+  geom_point(vms_locations, mapping = aes(x=Longitude, y=Latitude, color=GEAR), alpha=0.5,size=0.1)
+
+layer
+```
+
+```{r, echo=TRUE}
+layer + coord_map(xlim = c(-26, -25), ylim=c(37,38))
+```
+
+If we use just the datasets that are present in this dataframe, we might be able to tease out different areas that are used for bottom longlines and handlines. However, it seems like there may be data that are missing that would potentially show a complete overlap of both gear types. It doesn't seem like handlines are limited to the coastal areas; handline geartypes are logged just as far offshore as bottom longlines.
+
+Now we can compare it to the VMS shapefile for the bottom longline fishery that was generated by the University of Azores.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Add some Azores VMS generated data for bottom longlines
+vms_shp <- readOGR(paste0(file_path, "Telmo/VMS_data/Bottom_Longline/BLL_Raw.shp"))
+vms_dots <- as.data.frame(vms_shp)
+
+
+
+# Create new dataframe that has the old handline data and the new bottom longline data
+new_vms <- vms_locations %>% 
+  filter(GEAR == "handline") %>% 
+  select(Latitude, Longitude, GEAR)
+  vms_dots<-vms_dots %>% 
+          dplyr::  mutate(GEAR = "bottom longline") %>% 
+           dplyr:: select(Latitude, Longitude, GEAR)
+  new_vms<-rbind(new_vms,vms_dots)
+```
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Create plot
+map <- ggplot() +
+  geom_point(new_vms, mapping = aes(x=Longitude, y=Latitude, color=GEAR), alpha=0.5,size = 0.1) +
+  geom_polygon(data = eez, aes(x = long, y = lat, group = group, fill=hole), colour = "black") +
+  geom_polygon(data = six_new, aes(x = long, y = lat, group = group), colour = "black",fill=NA,linetype=2) +
+    geom_polygon(data = three, aes(x = long, y = lat, group = group), colour = "black",fill=NA,linetype=2) +
+  scale_fill_manual(values=alpha(c("slategray3", "white"), c(0.4, 1)), guide="none") + 
+  xlab("Longitude (DD)") + ylab("Latitude (DD)") + 
+  theme_void() + 
+  theme(panel.background = element_rect(fill="slategray1"))
+
+map
+
+
+```
+
+```{r, echo=TRUE}
+map +  geom_point(new_vms, mapping = aes(x=Longitude, y=Latitude, color=GEAR), alpha=0.5,size = 0.1) + coord_map(xlim = c(-26, -25), ylim=c(37,38))
+```
+
+
+# Add new VMS provided by Telmo from 2002-2018
+```{r}
+library(lubridate)
+library(scales)
+vms_shp <- readOGR(dsn=paste0(file_path, "VMS_Azores_2002_2018/Bottom_Longline_2002_2018/"),layer ="BLL_Raw_2002_18_Fishing")
+vms_dots <- as.data.frame(vms_shp)
+
+vms_dots<- vms_dots%>% 
+  mutate(date = format(`DateTime`, format="%Y-%m-%d"), 
+         date = as.POSIXct(date, format="%Y-%m-%d")) 
+
+
+vms_proc<-vms_dots %>%
+  mutate(Year==year(DateTime)) %>%
+  group_by(Latitude,Longitude,Gear,Year) %>%
+  summarise(time_diff=sum(TimeDiff),
+              log_time_diff=log10(time_diff+1)) %>%
+  ungroup() %>%
+   mutate(rescale_time_diff=rescale(log_time_diff,to=c(0,1))) 
+
+ y_fil<-c("2014","2015","2016","2017","2018")
+ 
+ vms_bll <- vms_proc %>%           
+          filter(Gear=="BLL") %>%
+          filter(Year %in% y_fil) 
+
+vms_other<-vms_proc %>%           
+          filter(Gear=="BLL / HL") %>%
+          filter(Year %in% y_fil) 
+
+
+
+
+```
+
+# Plot Processed BLL 2016-2018
+
+```{r}
+
+library(viridis)
+bll_map <- ggplot() +
+  geom_point(vms_bll, mapping = aes(x=Longitude, y=Latitude, color=rescale_time_diff), alpha=0.5,size = 0.1) +
+  geom_polygon(data = eez, aes(x = long, y = lat, group = group, fill=hole), colour = "black") +
+  geom_polygon(data = six_new, aes(x = long, y = lat, group = group), colour = "black",fill=NA,linetype=2) +
+    geom_polygon(data = three, aes(x = long, y = lat, group = group), colour = "black",fill=NA,linetype=2) +
+  scale_fill_manual(values=alpha(c("slategray3", "white"), c(0.4, 1)), guide="none") + 
+  scale_color_viridis(discrete=FALSE)+
+  xlab("Longitude (DD)") + ylab("Latitude (DD)") + 
+  theme_void() + 
+  theme(panel.background = element_rect(fill="slategray1"))
+
+bll_map
+
+```
+
+# Create VMS dataframe
+
+```{r}
+
+# Format raster to our study area
+
+area<-raster(paste0(boxdir,runname,"all_habitat.tif"))
+
+proj4string(area)<-CRS("+proj=utm +zone=26 +ellps=intl +towgs84=-104,167,-38,0,0,0,0 +units=m +no_defs") # putting the raster into a projected coordiante system of Azores_Central_1948_UTM_Zone_26N
+
+
+vms_raster<-raster(paste0(file_path,"VMS_Azores_2002_2018/Bottom_Longline_2002_2018/BLL_fishing_normL10.tif"))
+
+ vms_raster<-projectRaster(vms_raster,area,CRS("+proj=utm +zone=26 +ellps=intl +towgs84=-104,167,-38,0,0,0,0 +units=m +no_defs"))
+
+vms_raster_c<-crop(vms_raster, area,snap="in")
+
+vms_resample=resample(vms_raster_c,area)
+
+ writeRaster(vms_resample, "/Users/lennonrosethomas/Box Sync/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/raster_output_4k/bll_vms.tif") 
+ 
+ cell_no<-c(1:86655)
+ effort_value<-getValues(vms_resample)
+ 
+ vms_df<-data.frame(cell_no,effort_value)
+ colnames(vms_df)<-c("cell_no","fishing_effort")
+ vms_df[,1]<-c(1:86655)
+ vms_df[vms_df==0]<-NA
+ write.csv(vms_df,"/Users/lennonrosethomas/Box Sync/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/raster_output_4k/vms_df.csv")
+
+```
+
