@@ -71,7 +71,8 @@ create_fish_az <- function(common_name = 'white seabass',
                         adult_movement = 2,
                         larval_movement = 2,
                         query_fishlife = T,
-                        price = 1,
+                       # price_hl = 1,
+                      #  price_bll =1,
                         price_cv = 0,
                         price_ac = 0,
                         price_slope = 0,
@@ -82,7 +83,8 @@ create_fish_az <- function(common_name = 'white seabass',
                         default_wb = 2.8,
                         tune_weight = FALSE,
                         density_movement_modifier = 1,
-                        linf_buffer = 1.2) {
+                        linf_buffer = 1.2,
+                      price =1) {
 
 
 

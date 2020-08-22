@@ -47,7 +47,9 @@ sim_fishery_az<-
            constant_L,
            L,
            cost_cv = 0,
-           condor_mpa_cells) {
+           condor_mpa_cells=condor_raster_cells)
+          # condor_mpa_cells) 
+{
 # # #
 #   fish = fish
 #   fleet = fleet
@@ -103,7 +105,7 @@ sim_fishery_az<-
         f = 0,
         mpa = F,
         cost = NA,
-        L= NA
+        L= L
       ) %>%
       dplyr::as_data_frame() %>%
       dplyr::arrange(year, patch, age)
@@ -171,8 +173,8 @@ sim_fishery_az<-
       mpa_locations <- ctemp$patch
 
     } else {
-      mpa_locations <-
-        (1:num_patches)[0:prop_mpas] #weird zero is in case prop_mpas is zero
+      mpa_locations <- mpa_locations <- manager$mpa_locations
+      #  (1:num_patches)[0:prop_mpas] #weird zero is in case prop_mpas is zero
     }
 #browser()
  #   if (!all(is.na(manager$mpa_locations))){
@@ -480,11 +482,12 @@ sim_fishery_az<-
           )
 
 # Add MPA -----------------------------------------------------------------
-        if (y >  burn_years) {
-          pop$mpa[pop$cell_no %in% condor_mpa_cells & pop$year >= y] <- T
-          }
+      #  if (y >  burn_years) {
+         pop$mpa[pop$cell_no %in% condor_mpa_cells & pop$year >= y] <- T
+        #  }
        # make a column indicating what year which patches become MPAs
-       if ((y - burn_years) == manager$year_mpa) {
+     # if ((y - burn_years) == manager$year_mpa) {
+        if ((y) == manager$year_mpa) {
          pop$mpa[pop$patch %in% mpa_locations & pop$year >= y] <- T
 
          # Calculates effort within an MPA prior to implementation
@@ -631,7 +634,7 @@ opt_dev_profit<-L
 
       pop <- pop %>%
       #  dplyr::mutate(patch_age_costs = ((cost) * (effort)) / fish$max_age) %>% # divide costs up among each age class
-        dplyr::mutate(patch_age_costs = (cost_intercept+(distance*fleet$cost_slope))/ fish$max_age) %>%
+        dplyr::mutate(patch_age_costs = (cost_intercept+(distance*fleet$cost_slope)) * f/ fish$max_age) %>%
         dplyr::mutate(
           ssb = numbers * ssb_at_age,
           biomass = numbers * weight_at_age,

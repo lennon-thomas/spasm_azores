@@ -45,7 +45,9 @@ create_fleet_az <- function(eq_f = NA,
                          b_ref_oa = 0.25,
                          q = 1e-3,
                          cost_slope = 0,
-                         cost_intercept = 440.6,
+                         cost_intercept = 1,
+                        # cost_intercept_hl = NA,
+                        # cost_intercept_bll = NA,
                          fleet_model = 'constant-effort',
                          effort_allocation = 'gravity',
                          cost_function = 'constant',
@@ -57,7 +59,7 @@ create_fleet_az <- function(eq_f = NA,
                          q_slope = 0,
                          cost_ac = 0,
                          cost_cv = 0,
-                         L = 6
+                         L = 0
                          ) {
 
 
