@@ -24,7 +24,7 @@ file_path <- "/Volumes/GoogleDrive/Shared drives/emlab/projects/current-projects
 # Fleet Data
 fleet_path <- paste0(file_path, "azores-fishing-vessel-licenses/")
 fleet_list <- list.files(fleet_path, pattern="xlsx")
-
+fleet_list<-fleet_list[c(2:11)]
 # Consolidate all fleet data into one dataframe
 fleet_data <- NULL
 for(file in fleet_list){
@@ -44,7 +44,7 @@ for(file in fleet_list){
 # Logbooks
 log_path <- paste0(file_path, "LogBooks_FoA&WF_2009_2018/")
 log_list <- list.files(log_path, pattern = "xlsx")
-
+log_list<-log_list[c(-1)]
 # Consolidate all logbook data into one dataframe
 logbook_data <- NULL
 for(file in log_list){
@@ -79,7 +79,7 @@ Several vessels are registered for both bottom longline and handline in the same
 
 # Look at characterstics of 2019 demersal fleet
 ```{r echo=FALSE}
-gear<-c("Bottom longline","Handlines")
+gear<-c("bottom longline","handlines")
 species<-c("demersal and deep-water species","deep-water species","demersal, deep-water and pelagic species and squids")
 
 recent_fleet<- fleet_data %>%
@@ -90,29 +90,43 @@ recent_fleet<- fleet_data %>%
 
 recent_fleet$Length<-as.factor(recent_fleet$Length)
 
+#leet_label<-recent_fleet %>%
+  #group_by(Vessel_ID_Code) %>%
+  #summarize(gear=ifelse(!Vessel_ID_Code %in% both, length(unique(Gear)),"both"))
+                      
+
 handline<-recent_fleet %>%
-  filter(Gear=="Handlines")
+  filter(Gear=="handlines")
 
 bll<-recent_fleet %>%
-  filter(Gear=="Bottom longline")
+  filter(Gear=="bottom longline")
+
+all<-rbind(handline,bll)
 
 both<-intersect(handline$Vessel_ID_Code,bll$Vessel_ID_Code)
+
+all$Gear<-ifelse(all$Vessel_ID_Code %in% both,"Both",all$Gear)
+
+all<-all%>%
+  select(-c(6))
+
+all<-distinct(all)
 
 multiple<-recent_fleet %>%
   filter(Vessel_ID_Code %in% both) %>%
   count(Length) %>%
-    mutate(fleet = "Handline and bottom longline")
+    mutate(fleet = "handline and bottom longline")
 
 bll<-bll %>%
   filter(!Vessel_ID_Code %in% both) %>%
   count(Length) %>%
-  mutate(fleet = "Bottom longline") 
+  mutate(fleet = "bottom longline") 
 
 
 handline<- handline %>%
   filter(!Vessel_ID_Code %in% both) %>%
   count(Length) %>%
-  mutate(fleet = "Handline")
+  mutate(fleet = "handline")
 
 
 fleet_vessels<-rbind(handline,bll,multiple)
@@ -127,6 +141,10 @@ ggplot(fleet_vessels,aes(y=n,x=Length))+
   xlab("Vessel Length (m)") +
   ylab("Number")
 
+no_vessels<-fleet_vessels %>%
+  group_by(fleet) %>%
+  summarise(no_vessels=sum(n),
+            avg_length = mean(Length))
 
 
 
@@ -371,6 +389,49 @@ vms_resample=resample(vms_raster_c,area)
  vms_df[,1]<-c(1:86655)
  vms_df[vms_df==0]<-NA
  write.csv(vms_df,"/Users/lennonrosethomas/Box Sync/SFG Centralized Resources/Projects/BPC/Azores/data/bsb_model/raster_output_4k/vms_df.csv")
+
+```
+
+```{r}
+landings<-read.csv(paste0(file_path,"azores-landings-lotacor/summary/Landings_2009_2018.csv")) %>%
+  filter(Year==2017)
+
+landings<-landings %>%
+  left_join(all, by=c("Vessel_Code"="Vessel_ID_Code"),keep=TRUE)
+
+bsb_price<-landings %>%
+  filter(Cientific.name=="Pagellus bogaraveo") %>%
+  group_by(Gear) %>%
+  summarise(total_landings = sum(Weight..Kg.,na.rm=TRUE),
+            total_value = sum(Value....,na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(price = total_value/total_landings)
+
+
+landings_group<- landings %>%
+  group_by(Gear) %>%
+  summarise(Value=sum(Value....))
+
+
+landings_sp <- landings %>%
+  filter(!is.na(Gear)) %>%
+  group_by(Species.name) %>%
+  summarise(landings=sum(Weight..Kg.,na.rm=TRUE),
+              value = sum(Value....,na.rm = TRUE))
+
+landings_sp$Species.name<-tolower(landings_sp$Species.name)
+
+appendix<-read.csv("/Users/lennonrosethomas/Box Sync/Azores/data/fishery_appendix_oct.csv")
+
+landings_sp<-landings_sp %>%
+  left_join(appendix,by=c("Species.name"="common.name"))
+
+by_fishery<-landings_sp %>%
+  group_by(Fishery.sub.category) %>%
+  summarise(landings=sum(landings,na.rm=TRUE),
+              value = sum(value,na.rm = TRUE))
+
+
 
 ```
 

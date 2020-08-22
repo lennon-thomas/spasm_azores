@@ -52,9 +52,46 @@ if (type == "patch"){
 
 }
 
-if (type == "totals"){
+if (type == "by_fleet"){
 
-out <- sim %>%
+profit_plot <- sim %>%
+  group_by(years,fleet_no) %>%
+  summarise(
+    f = sum(f)/num_patches,
+    Profits = sum(profits,na.rm=TRUE),
+    Biomass = sum(biomass,na.rm=TRUE),
+    Catch = sum(biomass_caught,na.rm=TRUE),
+    B0 =unique(b0),
+    relative_profit_hl = unique(relative_profit_hl),
+    relative_profit_bll = unique(relative_profit_bll)                          
+  ) %>%
+ ungroup() %>%
+  mutate(`Profit Per Unit Effort` = Profits / (Catch/Biomass),
+         B_ratio = Biomass/B0,
+         rel_profit = ifelse(fleet_no==1,Profits/relative_profit_hl,Profits/relative_profit_bll)) %>%
+dplyr:: select(-c(B0,Biomass,'Profit Per Unit Effort',B_ratio,f,Catch,Profits,relative_profit_hl,relative_profit_bll)) %>%
+  gather(metric, value,-c(years,fleet_no)) %>%
+
+  ggplot(aes(years, value)) +
+  theme_bw() +
+  geom_vline(aes(xintercept = 0),
+             linetype = 2,
+             color = "red") +
+  geom_line(aes(col = fleet_no), show.legend = T, size = 1.5) +
+  scale_color_discrete("Fleet", labels = c("Handline", "Bottom longline")) +
+  # facet_wrap( ~ metric, scales = "free_y") +
+  labs(x = "Year (relative to MPA implementation)",  y = "Relative Profit") + # caption = "Vertical line shows year MPA put in place",
+  #  title = "Profit") +#paste("MPA Size:",scales::percent(mpasize))) +
+  theme_bw() +
+  scale_y_continuous(expand = expand_scale(mult = c(0, 0.1)), limits = c(0, NA))
+
+
+
+out<-profit_plot
+}
+
+if (type == "totals"){
+b_plot <- sim %>%
   group_by(year) %>%
   summarise(
     f = sum(f)/num_patches,
@@ -63,28 +100,69 @@ out <- sim %>%
     Catch = sum(biomass_caught,na.rm=TRUE),
     B0 =unique(b0),
   ) %>%
- ungroup() %>%
+  ungroup() %>%
   mutate(`Profit Per Unit Effort` = Profits / (Catch/Biomass),
-       #    f = Catch/Biomass,
-         B_ratio = Biomass/B0) %>%
-        # f2=Effort*fleet$q) %>%
-dplyr:: select(-c(B0,Biomass,'Profit Per Unit Effort')) %>%
-  gather(metric, value,-year) %>%
-
-  ggplot(aes(year, value)) +
+         #    f = Catch/Biomass,
+         B_ratio = Biomass/B0,
+         years = c(-1:16)) %>%
+  # f2=Effort*fleet$q) %>%
+  dplyr:: select(-c(B0,Biomass,'Profit Per Unit Effort',year)) %>%
+  gather(metric, value,-c(years)) %>%
+  filter(metric == "B_ratio") %>%
+  
+  ggplot(aes(years, value)) +
   theme_bw() +
- geom_vline(aes(xintercept = year_mpa),
+  geom_vline(aes(xintercept = 0),
              linetype = 2,
              color = "red") +
-  geom_line(show.legend = F, size = 1.5) +
-  facet_wrap( ~ metric, scales = "free_y") +
-  labs(x = "Year",  y = "",# caption = "Vertical line shows year MPA put in place",
-       title = paste("MPA Size:",scales::percent(mpasize))) +
+  geom_line( size = 1.5) +
+  #scale_color_discrete("Fleet",labels=c("Handline","Bottom longline")) +
+ # facet_wrap( ~ metric, scales = "free_y", nrow = 2) +
+  labs(x = "",  y = "B/Bmsy",# caption = "Vertical line shows year MPA put in place",
+       title = paste("MPA Size:",scales::percent(size_mpa))) +
   theme_bw()+
-  scale_y_continuous(expand = expand_scale(mult = c(0, 0.7)),limits=c(0,NA))
+  scale_y_continuous(expand = expand_scale(mult = c(0, 0.1)),limits=c(0,NA))
 
+catch_plot <- sim %>%
+  group_by(year) %>%
+  summarise(
+    f = sum(f) / num_patches,
+    Profits = sum(profits, na.rm = TRUE),
+    Biomass = sum(biomass, na.rm = TRUE),
+    Catch = sum(biomass_caught, na.rm = TRUE),
+    B0 = unique(b0),
+  ) %>%
+  ungroup() %>%
+  mutate(`Profit Per Unit Effort` = Profits / (Catch / Biomass),
+         #    f = Catch/Biomass,
+         B_ratio = Biomass / B0,
+         years = c(-1:16))  %>%
+  # f2=Effort*fleet$q) %>%
+  dplyr::select(-c(B0, Biomass, 'Profit Per Unit Effort',year)) %>%
+  gather(metric, value, -c(years)) %>%
+  filter(metric == "Catch") %>%
+  
+  ggplot(aes(years, value)) +
+  theme_bw() +
+  geom_vline(aes(xintercept = 0),
+             linetype = 2,
+             color = "red") +
+  geom_line( size = 1.5) +
+ # geom_line(aes(col = fleet_no), show.legend = T, size = 1.5) +
+  #scale_color_discrete("Fleet", labels = c("Handline", "Bottom longline")) +
+  #    facet_wrap( ~ metric, scales = "free_y", nrow = 2) +
+  labs(
+    x = "Year (relative to MPA implementation)",
+    y = "Catch (MT)") +
+  # caption = "Vertical line shows year MPA put in place",
+  #  title = paste("Catch") +
+  theme_bw() +
+  scale_y_continuous(expand = expand_scale(mult = c(0, 0.1)), limits =
+                       c(0, NA))
+
+
+out<-ggarrange(b_plot,catch_plot,nrow=2)
 }
-
 if (type == "doughnut"){
 
   out <- sim %>%

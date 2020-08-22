@@ -10,17 +10,21 @@ plot_fleet <- function(sim,
   
   mpasize <- ifelse(is.na(mpasize), 0, mpasize)
   
+  mpa_names<-c("7.5 % Handline and bottom longline area"," 15% Bottom longline","15% Handline area","15% highest fishing effort area","15% lowest fishing effort area")
+  
+  
  profit_plot<- ggplot(sim,aes(years, value)) +
     theme_bw() +
     geom_vline(aes(xintercept = 0),
                linetype = 2,
                color = "red") +
-    geom_line(aes(col = mpa_scen,linetype=fleet_no), show.legend = T, size = 1.5) +
-    scale_color_discrete("MPA_scenario", labels = mpa_scen) +
+    geom_line(aes(col = mpa_scen), show.legend = T, size = 1.5) +
+    scale_color_discrete("MPA scenario",labels =mpa_names) +
     scale_linetype_discrete("Fleet",labels = c("Handline","Bottom longline")) +
     labs(x = "Year (relative to MPA implementation)",  y = "Relative Profit",   caption = "Vertical line shows year MPA put in place",
       title =paste("MPA Size:",scales::percent(mpasize))) +
     theme_bw() +
+    facet_wrap(~fleet_no) +
     scale_y_continuous(expand = expand_scale(mult = c(0, 0.1)), limits = c(0, NA))
   
   
